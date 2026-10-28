@@ -60,23 +60,32 @@ export function scoreFor(temp){return clamp(1+(26-temp)*0.3,1,12);}
 
 export const outfitStyles={simple:'간단하게 · 적은 겹',balanced:'균형 있게 · 기본 조합',layered:'여러 겹으로 · 레이어드'};
 export const activityAdjustment=activity=>activity==='active'?-1:activity==='still'?1:0;
+export const preferenceChoices={exposure:{short:'10분 이내 · 잠깐 외출',medium:'10~30분 · 보통 외출',long:'30분 이상 · 오래 야외에 있어요'},commute:{mixed:'상황마다 달라요',walk:'도보·자전거 위주',transit:'대중교통 위주',car:'자동차 위주'},windSensitivity:{low:'바람에도 비교적 괜찮아요',normal:'보통이에요',high:'바람이 불면 특히 추워요'},sweat:{low:'땀이 적은 편이에요',normal:'보통이에요',high:'조금만 움직여도 땀이 나요'}};
+export function preferenceSettings(input={}){return Object.fromEntries(Object.entries(preferenceChoices).map(([key,choices])=>[key,Object.hasOwn(choices,input[key])?input[key]:{exposure:'medium',commute:'mixed',windSensitivity:'normal',sweat:'normal'}[key]]));}
+export function exposureAdjustment(exposure,temp){const factor=clamp((20-temp)/15,0,1);const adjustment=exposure==='short' ? -.4 : exposure==='long' ? .4 : 0;return Math.round(adjustment*factor*10)/10;}
+export function sensitivityPrior(profile,temp=null){
+ const cold=(Number(profile.cold)||0)*.5,heat=(Number(profile.heat)||0)*.5;
+ if(!Number.isFinite(temp))return clamp(cold-heat,-2,2);
+ return clamp(cold*clamp((22-temp)/12,0,1)-heat*clamp((temp-14)/12,0,1),-2,2);
+}
+export function comfortNotes(profile,weather){const notes=[];if(profile.commute==='transit')notes.push('대중교통과 실내에서는 더울 수 있어요. 벗기 쉬운 겉옷을 활용해 보세요.');if(profile.commute==='car')notes.push('자동차 이동 위주라도 실제 야외에 머무는 시간에 맞춰 준비해 주세요.');if(profile.sweat==='high')notes.push('땀이 나기 쉬운 편이에요. 통기성과 벗어서 조절하기 쉬운 조합을 고려해 주세요.');if(profile.windSensitivity==='high'&&weather.wind>=12)notes.push('바람에 민감한 편이고 바람도 있어요. 방풍 겉옷을 우선 고려했어요.');return notes;}
 export function correction(profile,records,temp=null){
- const prior=clamp(((Number(profile.cold)||0)-(Number(profile.heat)||0))*.5,-2,2);
+ const prior=sensitivityPrior(profile,temp);
  let total=prior*2,weight=2;
  for(const r of records){
   if(r.context!=='outdoor'||!Number.isFinite(r.weather?.feels)||!Number.isInteger(r.rating)||r.deleted)continue;
   let score;try{score=r.scoreVersion===SCORE_VERSION?r.score:outfit(r.items).score;}catch{continue;}
   if(!Number.isFinite(score))continue;
   const w=Number.isFinite(temp)?Math.exp(-.5*((r.weather.feels-temp)/5)**2):1;
-  const residual=clamp(score-r.rating*.8-scoreFor(r.weather.feels)-activityAdjustment(r.activity),-4,4);
+  const residual=clamp(score-r.rating*.8-scoreFor(r.weather.feels)-activityAdjustment(r.activity)-exposureAdjustment(r.exposure,r.weather.feels),-4,4);
   total+=residual*w;weight+=w;
  }
  return Math.round(clamp(total/weight,-4,4)*10)/10;
 }
 export function warmthTarget(profile,records,temp){
- const base=scoreFor(temp),offset=correction(profile,records,temp),activity=activityAdjustment(profile.activity);
+ const base=scoreFor(temp),offset=correction(profile,records,temp),activity=activityAdjustment(profile.activity),exposure=exposureAdjustment(profile.exposure,temp);
  const samples=records.filter(r=>r.context==='outdoor'&&!r.deleted&&Number.isFinite(r.weather?.feels)&&Math.abs(r.weather.feels-temp)<=5).length;
- return {base:Math.round(base*10)/10,offset,activity,target:Math.round(clamp(base+offset+activity,1,12)*10)/10,samples};
+ return {base:Math.round(base*10)/10,offset,activity,exposure,target:Math.round(clamp(base+offset+activity+exposure,1,12)*10)/10,samples,prior:Math.round(sensitivityPrior(profile,temp)*10)/10};
 }
 let candidates;
 function outfitCandidates(){
@@ -87,14 +96,15 @@ function outfitCandidates(){
   candidates.push({items,base,inner,outer,score:Math.round(items.reduce((n,c)=>n+c.score,0)*10)/10});
  }return candidates;
 }
-export function recommend(temp,offset,activity='normal',wind=0,style='balanced'){
+export function recommend(temp,offset,activity='normal',wind=0,style='balanced',options={}){
  const target=clamp(scoreFor(temp)+offset+activityAdjustment(activity),1,12);
  const preferred=style==='simple'?(target<2?1:2):style==='layered'?(target>=5?3:target>=2?2:1):(target>=6?3:target>=2?2:1);
  let best=null;
  for(const c of outfitCandidates()){
   const error=Math.abs(c.score-target);
   const shape=Math.abs(c.items.length-preferred)*(style==='balanced' ? .25 : .55);
-  const windPenalty=wind>=20&&!c.outer?.windproof ? 2 : 0;
+  const windThreshold=options.windSensitivity==='high'?12:options.windSensitivity==='low'?25:20;
+  const windPenalty=wind>=windThreshold&&!c.outer?.windproof ? 2 : 0;
   const innerPenalty=style==='simple'&&c.inner ? .6 : 0;
   const shellPenalty=c.outer&&!c.outer.windproof&&temp<5 ? .08 : 0;
   const cost=Math.max(0,error-.6)*5+error*.12+shape+windPenalty+innerPenalty+shellPenalty;

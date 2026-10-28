@@ -82,10 +82,13 @@ try{
  await waitFor(()=>evaluate('document.querySelectorAll(".history-row").length===1'));
  const deleted=await evaluate(`fetch('/api/data?userId=${data.profile.id}').then(r=>r.json())`);
  assert.equal(deleted.records.length,1);
- await evaluate(`document.querySelector('[data-view="settings"]').click();document.querySelector('#settings [name="style"]').value='simple';document.querySelector('#settings').requestSubmit()`);
+ await evaluate(`document.querySelector('[data-view="settings"]').click();document.querySelector('[data-preference-tab="routine"]').click();document.querySelector('#settings [name="exposure"]').value='long';document.querySelector('#settings [name="commute"]').value='transit';document.querySelector('[data-preference-tab="sensitivity"]').click();document.querySelector('#settings [name="windSensitivity"]').value='high';document.querySelector('#settings [name="sweat"]').value='high';document.querySelector('[data-preference-tab="style"]').click();document.querySelector('#settings [name="style"]').value='simple';document.querySelector('#settings').requestSubmit()`);
  await waitFor(()=>evaluate('document.querySelector("#notice").textContent.includes("설정을 저장" )'));
- const pref=await evaluate(`fetch('/api/data?userId=${data.profile.id}').then(r=>r.json())`);assert.equal(pref.profile.style,'simple');
+ const pref=await evaluate(`fetch('/api/data?userId=${data.profile.id}').then(r=>r.json())`);assert.equal(pref.profile.style,'simple');assert.equal(pref.profile.exposure,'long');assert.equal(pref.profile.commute,'transit');assert.equal(pref.profile.windSensitivity,'high');assert.equal(pref.profile.sweat,'high');
+ await screenshot('desktop-settings');
  await evaluate(`document.querySelector('[data-view="weather"]').click()`);
+ await evaluate(`document.querySelector('.target-details summary').click()`);
+ assert.ok(await evaluate(`document.querySelector('.target-details').textContent.includes('5.8')`));
  for(const [width,height,name] of [[390,844,'mobile-dashboard'],[768,1024,'tablet-dashboard']]){
   await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<600});
   await evaluate('window.scrollTo(0,0)');await pause(200);
@@ -93,6 +96,7 @@ try{
   await screenshot(name);
  }
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+ await evaluate(`document.querySelector('[data-view="settings"]').click();document.querySelector('[data-preference-tab="sensitivity"]').click()`);await screenshot('mobile-settings');
  await evaluate(`document.querySelector('[data-view="outfits"]').click();document.querySelector('#outfits').scrollIntoView({behavior:'instant'})`);await screenshot('mobile-builder');
  assert.deepEqual(errors,[]);
  console.log('Browser PASS: login, reset/clear recommendation, settings, custom layering, variants, daily update without duplicates, edit preload, deletion, style preferences, main tabs, 3-hour forecast, day-specific drafts; responsive widths 390 / 768 / 1440. Screenshots in .qa/');

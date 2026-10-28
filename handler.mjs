@@ -3,14 +3,14 @@ import {fileURLToPath} from 'node:url';
 import {join,dirname} from 'node:path';
 import {createStore} from './store.mjs';
 import {validateRecord} from './record.mjs';
-import {cities,normalizeNickname,clamp} from './lib.mjs';
+import {cities,normalizeNickname,clamp,preferenceSettings} from './lib.mjs';
 const root=dirname(fileURLToPath(import.meta.url));
 let storePromise;
 function storage(){return storePromise??=createStore().catch(e=>{storePromise=null;throw e;});}
 const cache=new Map();
 const json=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
 async function body(req){if(req.body && typeof req.body === 'object')return req.body;if(typeof req.body === 'string')return JSON.parse(req.body);let s='';for await(const c of req){s+=c;if(Buffer.byteLength(s)>2_000_000)throw Error('파일이 너무 큽니다.');}return JSON.parse(s||'{}');}
-function settings(input){return {cold:clamp(Number(input.cold)||0,0,2),heat:clamp(Number(input.heat)||0,0,2),city:cities[input.city]?input.city:'seoul',activity:['normal','active','still'].includes(input.activity)?input.activity:'normal',hour:clamp(Math.round(Number.isFinite(Number(input.hour))?Number(input.hour):8),0,23),style:['simple','balanced','layered'].includes(input.style)?input.style:'balanced',onboarded:!!input.onboarded};}
+function settings(input){return {...preferenceSettings(input),cold:clamp(Number(input.cold)||0,0,2),heat:clamp(Number(input.heat)||0,0,2),city:cities[input.city]?input.city:'seoul',activity:['normal','active','still'].includes(input.activity)?input.activity:'normal',hour:clamp(Math.round(Number.isFinite(Number(input.hour))?Number(input.hour):8),0,23),style:['simple','balanced','layered'].includes(input.style)?input.style:'balanced',onboarded:!!input.onboarded};}
 
 export default async function handler(req,res){try{const u=new URL(req.url,'http://localhost');
  if(u.pathname==='/api/handler'&&u.searchParams.has('route'))u.pathname='/api/'+u.searchParams.get('route');
