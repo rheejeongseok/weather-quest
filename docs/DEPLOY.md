@@ -2,7 +2,7 @@
 
 ## 1. Supabase 테이블 만들기
 
-1. https://supabase.com/dashboard/project/gkvosqqmynfgiopaqfei 에 접속합니다.
+1. https://supabase.com/dashboard/project/jzzdgoirtokaiwwmmitd 에 접속합니다.
 2. 왼쪽 **SQL Editor** → **New query**를 선택합니다.
 3. 저장소의 `supabase/schema.sql` 내용을 전부 복사해 붙여넣습니다.
 4. **Run**을 눌러 실행합니다. 테이블 `wq_profiles`, `wq_records`와 병합 함수 `wq_import_records`가 만들어집니다.
@@ -22,7 +22,7 @@ https://vercel.com/jung-seok-lee-s-projects/weather-quest → **Settings → Env
 
 | 이름 | 값 |
 |---|---|
-| `SUPABASE_URL` | `https://gkvosqqmynfgiopaqfei.supabase.co` |
+| `SUPABASE_URL` | `https://jzzdgoirtokaiwwmmitd.supabase.co` |
 | `SUPABASE_SECRET_KEY` | 앞에서 복사한 secret key 또는 service_role 키 |
 
 Production과 Preview 환경을 선택합니다. 로컬에서도 같은 DB를 쓰려면 `.env.local`에 같은 변수를 넣고 `node --env-file=.env.local server.mjs`로 실행합니다. 이 파일은 Git에서 제외됩니다.
