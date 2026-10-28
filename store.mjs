@@ -2,13 +2,28 @@ import {randomUUID} from 'node:crypto';
 import {dailyRecord,dailyRecords} from './record.mjs';
 
 export function createSupabaseStore({url,key,fetcher=fetch}){
- const base=url.replace(/\/$/,'')+'/rest/v1/';
+ url=String(url||'').trim();key=String(key||'').trim();
+ let endpoint;try{endpoint=new URL(url);}catch{throw Error('SUPABASE_URL은 https://프로젝트ID.supabase.co 형태의 Project URL이어야 해요.');}
+ if(endpoint.protocol!=='https:'||endpoint.username||endpoint.password||endpoint.pathname!=='/'||endpoint.search||endpoint.hash)throw Error('SUPABASE_URL에는 대시보드 주소가 아닌 Project URL(https://프로젝트ID.supabase.co)을 입력해 주세요.');
+ if(/[\r\n\t ]/.test(key)||/[^\x21-\x7e]/.test(key))throw Error('SUPABASE_SECRET_KEY에 공백·줄바꿈·잘못된 문자가 있어요. 새 프로젝트의 서버용 키를 다시 복사해 주세요.');
+ const base=endpoint.origin+'/rest/v1/';
  async function request(path,{method='GET',body,prefer}={}){
   const headers={apikey:key,'Content-Type':'application/json'};
   if(key.startsWith('eyJ'))headers.Authorization=`Bearer ${key}`;
   if(prefer)headers.Prefer=prefer;
-  const response=await fetcher(base+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(12000)});
-  if(!response.ok){console.error('Supabase request failed:',response.status,path.split('?')[0]);throw Error('DB에 연결하지 못했어요. Supabase SQL 실행 및 서버 환경변수 설정을 확인해 주세요.');}
+  let response;
+  try{response=await fetcher(base+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(12000)});}catch(e){
+   const code=e.cause?.code||e.code||e.name;console.error('Supabase connection failed:',endpoint.hostname,code);
+   const reason=['ENOTFOUND','EAI_AGAIN'].includes(code)?'프로젝트 주소의 DNS 조회 실패':e.name==='TimeoutError'||code==='ETIMEDOUT'?'연결 시간 초과':'서버 연결 실패';
+   throw Error(`Supabase ${reason}. Vercel의 SUPABASE_URL이 새 프로젝트의 Project URL인지, 프로젝트가 실행 중인지 확인하고 재배포해 주세요.`);
+  }
+  if(!response.ok){
+   console.error('Supabase request failed:',response.status,path.split('?')[0]);
+   if(response.status===401)throw Error('Supabase 키 인증 실패(401). URL과 Secret key가 같은 새 프로젝트의 값인지, 키가 활성 상태인지 확인하고 재배포해 주세요.');
+   if(response.status===403)throw Error('Supabase 접근 권한 오류(403). 서버용 Secret key와 schema.sql의 테이블 권한 설정을 확인해 주세요.');
+   if(response.status===404)throw Error('Supabase 테이블·함수를 찾지 못했어요(404). 새 프로젝트에서 schema.sql을 실행했는지 확인해 주세요.');
+   throw Error(`Supabase DB 요청 오류(${response.status}). 프로젝트 상태와 테이블 설정을 확인해 주세요.`);
+  }
   const text=await response.text();
   if(!text.trim())return null;
   try{return JSON.parse(text);}catch{throw Error('DB 서버가 올바른 JSON 응답을 보내지 않았어요. 잠시 후 다시 시도해 주세요.');}
