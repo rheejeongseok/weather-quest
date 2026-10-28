@@ -2,7 +2,7 @@ import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {join,dirname} from 'node:path';
 import {createStore} from './store.mjs';
-import {cities,clothes,normalizeNickname,clamp} from './lib.mjs';
+import {cities,selectedClothes,normalizeNickname,clamp} from './lib.mjs';
 const root=dirname(fileURLToPath(import.meta.url));
 let storePromise;
 function storage(){return storePromise??=createStore().catch(e=>{storePromise=null;throw e;});}
@@ -10,7 +10,7 @@ const cache=new Map();
 const json=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
 async function body(req){if(req.body && typeof req.body === 'object')return req.body;if(typeof req.body === 'string')return JSON.parse(req.body);let s='';for await(const c of req){s+=c;if(Buffer.byteLength(s)>2_000_000)throw Error('파일이 너무 큽니다.');}return JSON.parse(s||'{}');}
 function settings(input){return {cold:clamp(Number(input.cold)||0,0,2),heat:clamp(Number(input.heat)||0,0,2),city:cities[input.city]?input.city:'seoul',activity:['normal','active','still'].includes(input.activity)?input.activity:'normal',hour:clamp(Math.round(Number.isFinite(Number(input.hour))?Number(input.hour):8),0,23),onboarded:!!input.onboarded};}
-function validateRecord(r){if(!r||typeof r.id!=='string'||r.id.length>80||!/^\d{4}-\d{2}-\d{2}$/.test(r.date)||!Array.isArray(r.items)||!r.items.length||r.items.length>3)throw Error('착용 기록 형식이 올바르지 않습니다.');const items=r.items.map(id=>clothes.find(c=>c.id===id));if(items.some(c=>!c)||new Set(items.map(c=>c.slot)).size!==items.length)throw Error('옷은 종류별로 한 벌씩 선택해 주세요.');if(!Number.isInteger(r.rating)||Math.abs(r.rating)>2||!Number.isFinite(r.weather?.feels)||!Number.isFinite(r.weather?.temp)||!['outdoor','indoor'].includes(r.context))throw Error('피드백이나 날씨 정보가 올바르지 않습니다.');return {id:r.id,date:r.date,items:r.items,score:items.reduce((n,c)=>n+c.score,0),rating:r.rating,context:r.context,weather:{temp:r.weather.temp,feels:r.weather.feels,city:String(r.weather.city||'').slice(0,40),hour:clamp(Number.isFinite(Number(r.weather.hour))?Number(r.weather.hour):8,0,23)},updatedAt:new Date().toISOString()};}
+function validateRecord(r){if(!r||typeof r.id!=='string'||r.id.length>80||!/^\d{4}-\d{2}-\d{2}$/.test(r.date))throw Error('착용 기록 형식이 올바르지 않습니다.');const items=selectedClothes(r.items);if(!Number.isInteger(r.rating)||Math.abs(r.rating)>2||!Number.isFinite(r.weather?.feels)||!Number.isFinite(r.weather?.temp)||!['outdoor','indoor'].includes(r.context))throw Error('피드백이나 날씨 정보가 올바르지 않습니다.');return {id:r.id,date:r.date,items:r.items,score:items.reduce((n,c)=>n+c.score,0),rating:r.rating,context:r.context,weather:{temp:r.weather.temp,feels:r.weather.feels,city:String(r.weather.city||'').slice(0,40),hour:clamp(Number.isFinite(Number(r.weather.hour))?Number(r.weather.hour):8,0,23)},updatedAt:new Date().toISOString()};}
 export default async function handler(req,res){try{const u=new URL(req.url,'http://localhost');
  if(u.pathname==='/api/handler'&&u.searchParams.has('route'))u.pathname='/api/'+u.searchParams.get('route');
  const db=u.pathname.startsWith('/api/')&&u.pathname!=='/api/weather'?await storage():null;
