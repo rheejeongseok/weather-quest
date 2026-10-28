@@ -15,7 +15,7 @@ try{
  const pages=await waitFor(async()=>{const r=await fetch('http://127.0.0.1:9334/json');const pages=(await r.json()).filter(p=>p.type==='page'&&p.url==='about:blank');return pages.length?pages:null;});
  ws=new WebSocket(pages[0].webSocketDebuggerUrl);await new Promise((resolve,reject)=>{ws.onopen=resolve;ws.onerror=reject;});
  let counter=0;const queue=new Map(),errors=[];
- ws.onmessage=e=>{const b=JSON.parse(e.data);if(b.id){const pending=queue.get(b.id);queue.delete(b.id);b.error?pending.reject(Error(b.error.message)):pending.resolve(b.result);}if(b.method==='Runtime.exceptionThrown')errors.push(b.params.exceptionDetails.text);};
+ ws.onmessage=e=>{const b=JSON.parse(e.data);if(b.id){const pending=queue.get(b.id);queue.delete(b.id);b.error?pending.reject(Error(b.error.message)):pending.resolve(b.result);}if(b.method==='Page.javascriptDialogOpening')send('Page.handleJavaScriptDialog',{accept:true});if(b.method==='Runtime.exceptionThrown')errors.push(b.params.exceptionDetails.text);};
  const send=(method,params={})=>new Promise((resolve,reject)=>{const id=++counter;queue.set(id,{resolve,reject});ws.send(JSON.stringify({id,method,params}));});
  async function evaluate(expression){const r=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result?.value;}
  await send('Runtime.enable');await send('Page.enable');
@@ -28,7 +28,10 @@ try{
  await waitFor(()=>evaluate('!!document.querySelector("#settings")'));
  await evaluate(`document.querySelector('#settings').requestSubmit()`);
  await waitFor(()=>evaluate('!!document.querySelector("#catalog")'));
+ assert.equal(await evaluate('document.querySelector("#outfits").hidden'),true);
  await screenshot('desktop-dashboard');
+ await evaluate(`document.querySelector('[data-view="outfits"]').click()`);
+ assert.equal(await evaluate('document.querySelector(".overview").hidden'),true);
  const result=await evaluate(`(()=>{for(const c of document.querySelectorAll('#catalog input:checked')){c.checked=false;c.dispatchEvent(new Event('change'));}for(const id of ['tee','shirt','wind']){const c=document.querySelector('#catalog input[value="'+id+'"]');c.checked=true;c.dispatchEvent(new Event('change'));}const v=document.querySelector('[data-variant="shirt"]');v.value='flannel';v.dispatchEvent(new Event('change'));return document.querySelector('.combo-score').textContent;})()`);
  assert.match(result,/4\.5/);
  await evaluate(`document.querySelector('#apply-outfit').click();document.querySelector('#feedback input[value="0"]').checked=true;document.querySelector('#feedback').requestSubmit();`);
@@ -36,26 +39,33 @@ try{
  const data=await evaluate(`fetch('/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nickname:'브라우저테스트'})}).then(r=>r.json())`);
  assert.equal(data.records[0].score,4.5);assert.equal(data.records[0].itemOptions.shirt,'flannel');assert.equal(data.records[0].scoreVersion,2);
  assert.equal(await evaluate('document.querySelectorAll(".forecast-table thead th").length'),9);
- await evaluate(`document.querySelector('#feedback input[value="1"]').checked=true;document.querySelector('#feedback').requestSubmit()`);
+ await evaluate(`document.querySelector('[data-view="feedback"]').click();document.querySelector('#feedback input[value="1"]').checked=true;document.querySelector('#feedback').requestSubmit()`);
  await waitFor(()=>evaluate('document.querySelector(".history-row .feedback-tag").textContent.includes("조금 더웠어요")'));
  assert.equal(await evaluate('document.querySelectorAll(".history-row").length'),1);
  const updated=await evaluate(`fetch('/api/data?userId=${data.profile.id}').then(r=>r.json())`);
  assert.equal(updated.records.length,1);assert.equal(updated.records[0].rating,1);assert.equal(updated.records[0].id,'day:'+updated.records[0].date);
  await evaluate(`document.querySelector('[data-edit]').click()`);
  assert.equal(await evaluate(`document.querySelector('#feedback input:checked').value`),'1');
- await evaluate(`document.querySelector('#tomorrow').click()`);
+ await evaluate(`document.querySelector('[data-view="weather"]').click();document.querySelector('#tomorrow').click()`);
  assert.equal(await evaluate(`document.querySelector('#today').getAttribute('aria-pressed')`),'false');
- await evaluate(`document.querySelector('#today').click()`);
+ await evaluate(`document.querySelector('#today').click();document.querySelector('[data-view="outfits"]').click()`);
  assert.match(await evaluate(`document.querySelector('.combo-score').textContent`),/4\.5/);
  const past=await evaluate(`(async()=>{const date=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date(Date.now()-86400000));const r=await fetch('/api/record',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:'${data.profile.id}',record:{id:'past-test',date,items:['long'],rating:0,context:'outdoor',weather:{temp:-2,feels:-5,hour:7,city:'과거테스트'}}})});if(!r.ok)throw Error(await r.text());return date;})()`);
  await send('Page.reload');await waitFor(()=>evaluate('document.querySelectorAll(".history-row").length===2'));
- await evaluate(`document.querySelector('[data-edit="${past}"]').click()`);
+ await evaluate(`document.querySelector('[data-view="history"]').click();document.querySelector('[data-edit="${past}"]').click()`);
  assert.equal(await evaluate(`document.querySelector('#feedback [name=hour]').disabled`),true);
  await evaluate(`document.querySelector('#feedback input[value="-1"]').checked=true;document.querySelector('#feedback').requestSubmit()`);
  await waitFor(()=>evaluate('document.querySelector("#notice").textContent.includes("수정했어요")'));
  const afterPast=await evaluate(`fetch('/api/data?userId=${data.profile.id}').then(r=>r.json())`);
  assert.equal(afterPast.records.length,2);const savedPast=afterPast.records.find(r=>r.date===past);assert.equal(savedPast.rating,-1);assert.equal(savedPast.weather.feels,-5);assert.equal(savedPast.weather.hour,7);
- await evaluate(`document.querySelector('#back-today').click()`);
+ await evaluate(`document.querySelector('#back-today').click();document.querySelector('[data-view="history"]').click();document.querySelector('[data-delete="${past}"]').click()`);
+ await waitFor(()=>evaluate('document.querySelectorAll(".history-row").length===1'));
+ const deleted=await evaluate(`fetch('/api/data?userId=${data.profile.id}').then(r=>r.json())`);
+ assert.equal(deleted.records.length,1);
+ await evaluate(`document.querySelector('[data-view="settings"]').click();document.querySelector('#settings [name="style"]').value='simple';document.querySelector('#settings').requestSubmit()`);
+ await waitFor(()=>evaluate('document.querySelector("#notice").textContent.includes("설정을 저장" )'));
+ const pref=await evaluate(`fetch('/api/data?userId=${data.profile.id}').then(r=>r.json())`);assert.equal(pref.profile.style,'simple');
+ await evaluate(`document.querySelector('[data-view="weather"]').click()`);
  for(const [width,height,name] of [[390,844,'mobile-dashboard'],[768,1024,'tablet-dashboard']]){
   await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<600});
   await evaluate('window.scrollTo(0,0)');await pause(200);
@@ -63,7 +73,7 @@ try{
   await screenshot(name);
  }
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
- await evaluate(`document.querySelector('#outfits').scrollIntoView({behavior:'instant'})`);await screenshot('mobile-builder');
+ await evaluate(`document.querySelector('[data-view="outfits"]').click();document.querySelector('#outfits').scrollIntoView({behavior:'instant'})`);await screenshot('mobile-builder');
  assert.deepEqual(errors,[]);
- console.log('Browser PASS: login, settings, custom layering, variants, daily update without duplicates, edit preload, 3-hour forecast, day-specific drafts; responsive widths 390 / 768 / 1440. Screenshots in .qa/');
+ console.log('Browser PASS: login, settings, custom layering, variants, daily update without duplicates, edit preload, deletion, style preferences, main tabs, 3-hour forecast, day-specific drafts; responsive widths 390 / 768 / 1440. Screenshots in .qa/');
 }finally{if(ws?.readyState===1)ws.close();browser.kill();local.kill();}

@@ -4,7 +4,7 @@ export function dailyRecords(records){
  const days=new Map();
  for(const r of records){const key=r.date||r.id;const old=days.get(key);const canonical=r.id===`day:${r.date}`;const oldCanonical=old?.id===`day:${old?.date}`;
   if(!old||(canonical&&!oldCanonical)||(canonical===oldCanonical&&String(r.updatedAt||'').localeCompare(String(old.updatedAt||''))>=0))days.set(key,r);
- }return [...days.values()];
+ }return [...days.values()].filter(r=>!r.deleted);
 }
 export function validateRecord(r,{importing=false}={}){
  if(!r||typeof r.id!=='string'||!r.id.length||r.id.length>80||!/^\d{4}-\d{2}-\d{2}$/.test(r.date))throw Error('착용 기록 형식이 올바르지 않습니다.');
@@ -16,6 +16,6 @@ export function validateRecord(r,{importing=false}={}){
  const itemOptions=Object.fromEntries(result.items.map(c=>[c.id,c.variantId]));
  return {id:r.id,date:r.date,items:r.items,itemOptions,score:legacy&&Number.isFinite(r.score)?clamp(r.score,0,100):result.score,scoreVersion:legacy?1:SCORE_VERSION,
   garments:legacy?undefined:result.items.map(c=>({id:c.id,name:c.name,variantId:c.variantId,variantName:c.variantName,material:c.material,score:c.score})),
-  rating:r.rating,context:r.context,weather:{temp:r.weather.temp,feels:r.weather.feels,city:String(r.weather.city||'').slice(0,40),hour:clamp(Number.isFinite(Number(r.weather.hour))?Number(r.weather.hour):8,0,23)},
+  rating:r.rating,context:r.context,activity:['normal','active','still'].includes(r.activity)?r.activity:null,weather:{temp:r.weather.temp,feels:r.weather.feels,city:String(r.weather.city||'').slice(0,40),hour:clamp(Number.isFinite(Number(r.weather.hour))?Number(r.weather.hour):8,0,23)},
   updatedAt:importing&&typeof r.updatedAt==='string'&&Number.isFinite(Date.parse(r.updatedAt))?new Date(r.updatedAt).toISOString():new Date().toISOString()};
 }

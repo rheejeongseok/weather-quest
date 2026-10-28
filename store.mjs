@@ -20,6 +20,7 @@ export function createSupabaseStore({url,key,fetcher=fetch}){
   async settings(id,data){await request('wq_profiles?id=eq.'+query(id),{method:'PATCH',body:{data},prefer:'return=minimal'});},
   async records(id){const all=[];for(let offset=0;;offset+=1000){const rows=await request('wq_records?user_id=eq.'+query(id)+'&select=data&order=id&limit=1000&offset='+offset);all.push(...rows.map(r=>r.data));if(rows.length<1000)return dailyRecords(all);}},
   async save(id,record){const r=dailyRecord(record);await request('wq_records?on_conflict=user_id,id',{method:'POST',body:{id:r.id,user_id:id,data:r},prefer:'resolution=merge-duplicates,return=minimal'});await request('wq_records?user_id=eq.'+query(id)+'&data->>date=eq.'+query(r.date)+'&id=neq.'+query(r.id),{method:'DELETE',prefer:'return=minimal'});},
+  async remove(id,date){await this.save(id,{date,deleted:true,updatedAt:new Date().toISOString()});},
   async merge(id,items){const existing=new Set((await this.records(id)).map(r=>r.date));const fresh=dailyRecords(items).filter(r=>!existing.has(r.date)).map(dailyRecord);if(!fresh.length)return 0;return request('rpc/wq_import_records',{method:'POST',body:{p_user_id:id,p_records:fresh}});}
  };
 }
@@ -38,6 +39,7 @@ export async function createStore(){
   async settings(id,data){db.prepare('UPDATE profiles SET data=? WHERE id=?').run(JSON.stringify(data),id);},
   async records(id){return dailyRecords(db.prepare('SELECT data FROM wq_records WHERE user_id=? ORDER BY id').all(id).map(r=>JSON.parse(r.data)));},
   async save(id,record){const r=dailyRecord(record);db.exec('BEGIN');try{db.prepare('INSERT INTO wq_records VALUES(?,?,?) ON CONFLICT(user_id,id) DO UPDATE SET data=excluded.data').run(r.id,id,JSON.stringify(r));db.prepare("DELETE FROM wq_records WHERE user_id=? AND json_extract(data,'$.date')=? AND id<>?").run(id,r.date,r.id);db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}},
+  async remove(id,date){await store.save(id,{date,deleted:true,updatedAt:new Date().toISOString()});},
   async merge(id,items){const existing=new Set((await store.records(id)).map(r=>r.date));let count=0;db.exec('BEGIN');try{const stmt=db.prepare('INSERT OR IGNORE INTO wq_records VALUES(?,?,?)');for(const input of dailyRecords(items)){if(existing.has(input.date))continue;const r=dailyRecord(input);count+=Number(stmt.run(r.id,id,JSON.stringify(r)).changes);}db.exec('COMMIT');return count;}catch(e){db.exec('ROLLBACK');throw e;}}
  };return store;
 }

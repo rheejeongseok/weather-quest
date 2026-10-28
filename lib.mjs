@@ -57,15 +57,47 @@ export const cities = {seoul:{name:'서울',lat:37.57,lon:126.98},busan:{name:'�
 export function normalizeNickname(value){const s=String(value??'').normalize('NFKC').trim();if(s.length<1||s.length>24||/[\x00-\x1f]/.test(s))throw Error('닉네임은 1~24자로 입력해 주세요.');return s;}
 export const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export function scoreFor(temp){return clamp(1+(26-temp)*0.3,1,12);}
-export function correction(profile,records){let v=clamp((profile.cold-profile.heat)*0.5,-2,2);for(const r of [...records].filter(r=>r.context==='outdoor').sort((a,b)=>a.date.localeCompare(b.date)||a.updatedAt.localeCompare(b.updatedAt))){const score=r.scoreVersion===SCORE_VERSION?r.score:outfit(r.items).score;v=clamp(v*.8+(score-r.rating-scoreFor(r.weather.feels))*.2,-4,4);}return Math.round(v*10)/10;}
-export function recommend(temp,offset,activity='normal',wind=0){
- const target=clamp(scoreFor(temp)+offset+(activity==='active'?-1:activity==='still'?1:0),1,12);let best=null;
- const forRole=role=>clothes.filter(c=>c.roles.includes(role));
- for(const inner of [null,...forRole('inner')])for(const base of forRole('base'))for(const mid of [null,...forRole('middle')])for(const outer of [null,...forRole('outer')]){
-  const items=[inner,base,mid,outer].filter(Boolean);
-  if(new Set(items.map(c=>c.id)).size!==items.length)continue;
-  const score=Math.round(items.reduce((n,c)=>n+c.score,0)*10)/10;
-  const cost=Math.abs(score-target)+(wind>=20&&!outer?.windproof?1:0)+items.length*.03;
-  if(!best||cost<best.cost)best={items,score,target:Math.round(target*10)/10,cost};
+
+export const outfitStyles={simple:'간단하게 · 적은 겹',balanced:'균형 있게 · 기본 조합',layered:'여러 겹으로 · 레이어드'};
+export const activityAdjustment=activity=>activity==='active'?-1:activity==='still'?1:0;
+export function correction(profile,records,temp=null){
+ const prior=clamp(((Number(profile.cold)||0)-(Number(profile.heat)||0))*.5,-2,2);
+ let total=prior*2,weight=2;
+ for(const r of records){
+  if(r.context!=='outdoor'||!Number.isFinite(r.weather?.feels)||!Number.isInteger(r.rating)||r.deleted)continue;
+  let score;try{score=r.scoreVersion===SCORE_VERSION?r.score:outfit(r.items).score;}catch{continue;}
+  if(!Number.isFinite(score))continue;
+  const w=Number.isFinite(temp)?Math.exp(-.5*((r.weather.feels-temp)/5)**2):1;
+  const residual=clamp(score-r.rating*.8-scoreFor(r.weather.feels)-activityAdjustment(r.activity),-4,4);
+  total+=residual*w;weight+=w;
+ }
+ return Math.round(clamp(total/weight,-4,4)*10)/10;
+}
+export function warmthTarget(profile,records,temp){
+ const base=scoreFor(temp),offset=correction(profile,records,temp),activity=activityAdjustment(profile.activity);
+ const samples=records.filter(r=>r.context==='outdoor'&&!r.deleted&&Number.isFinite(r.weather?.feels)&&Math.abs(r.weather.feels-temp)<=5).length;
+ return {base:Math.round(base*10)/10,offset,activity,target:Math.round(clamp(base+offset+activity,1,12)*10)/10,samples};
+}
+let candidates;
+function outfitCandidates(){
+ if(candidates)return candidates;candidates=[];
+ const forRole=role=>clothes.filter(c=>c.roles.includes(role)).flatMap(c=>c.variants.map(v=>({...c,score:v.score,variantId:v.id,variantName:v.name,material:v.material})));
+ for(const inner of [null,...forRole('inner')])for(const base of forRole('base'))for(const middle of [null,...forRole('middle')])for(const outer of [null,...forRole('outer')]){
+  const items=[inner,base,middle,outer].filter(Boolean);if(new Set(items.map(c=>c.id)).size!==items.length)continue;
+  candidates.push({items,base,inner,outer,score:Math.round(items.reduce((n,c)=>n+c.score,0)*10)/10});
+ }return candidates;
+}
+export function recommend(temp,offset,activity='normal',wind=0,style='balanced'){
+ const target=clamp(scoreFor(temp)+offset+activityAdjustment(activity),1,12);
+ const preferred=style==='simple'?(target<2?1:2):style==='layered'?(target>=5?3:target>=2?2:1):(target>=6?3:target>=2?2:1);
+ let best=null;
+ for(const c of outfitCandidates()){
+  const error=Math.abs(c.score-target);
+  const shape=Math.abs(c.items.length-preferred)*(style==='balanced' ? .25 : .55);
+  const windPenalty=wind>=20&&!c.outer?.windproof ? 2 : 0;
+  const innerPenalty=style==='simple'&&c.inner ? .6 : 0;
+  const shellPenalty=c.outer&&!c.outer.windproof&&temp<5 ? .08 : 0;
+  const cost=Math.max(0,error-.6)*5+error*.12+shape+windPenalty+innerPenalty+shellPenalty;
+  if(!best||cost<best.cost)best={items:c.items,score:c.score,target:Math.round(target*10)/10,cost,style};
  }return best;
 }
