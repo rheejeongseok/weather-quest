@@ -1,5 +1,5 @@
 import {spawn} from 'node:child_process';
-import {mkdir,writeFile,mkdtemp} from 'node:fs/promises';
+import {mkdir,writeFile,mkdtemp,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import assert from 'node:assert/strict';
@@ -19,6 +19,18 @@ try{
  const send=(method,params={})=>new Promise((resolve,reject)=>{const id=++counter;queue.set(id,{resolve,reject});ws.send(JSON.stringify({id,method,params}));});
  async function evaluate(expression){const r=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result?.value;}
  await send('Runtime.enable');await send('Page.enable');
+ if(process.argv.includes('--icons')){
+  const svg=await readFile(new URL('public/favicon.svg',root),'utf8');
+  await send('Emulation.setDefaultBackgroundColorOverride',{color:{r:0,g:0,b:0,a:0}});
+  for(const size of [32,180]){
+   await send('Emulation.setDeviceMetricsOverride',{width:size,height:size,deviceScaleFactor:1,mobile:false});
+   await evaluate(`document.open();document.write(${JSON.stringify('<!doctype html><html><head><style>html,body{margin:0;padding:0;background:transparent;width:100%;height:100%;overflow:hidden}svg{display:block;width:100%;height:100%}</style></head><body>'+svg+'</body></html>')});document.close();`);
+   const capture=await send('Page.captureScreenshot',{format:'png'});const png=Buffer.from(capture.data,'base64');
+   if(size===180)await writeFile(new URL('public/apple-touch-icon.png',root),png);
+   else{const header=Buffer.alloc(22);header.writeUInt16LE(1,2);header.writeUInt16LE(1,4);header[6]=32;header[7]=32;header.writeUInt16LE(1,10);header.writeUInt16LE(32,12);header.writeUInt32LE(png.length,14);header.writeUInt32LE(22,18);await writeFile(new URL('public/favicon.ico',root),Buffer.concat([header,png]));}
+  }
+  await send('Emulation.setDefaultBackgroundColorOverride',{});
+ }
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
  await send('Page.navigate',{url:'http://127.0.0.1:3014/'});
  try{await waitFor(()=>evaluate('!!document.querySelector("#login")'));}catch(e){console.log(await evaluate('document.documentElement.outerHTML.slice(0,2500)'));console.log(errors);throw e;}
@@ -32,6 +44,14 @@ try{
  await screenshot('desktop-dashboard');
  await evaluate(`document.querySelector('[data-view="outfits"]').click()`);
  assert.equal(await evaluate('document.querySelector(".overview").hidden'),true);
+ const initialSelection=await evaluate(`Array.from(document.querySelectorAll('#catalog input:checked'),c=>({id:c.value,variant:document.querySelector('[data-variant="'+c.value+'"]').value}))`);
+ await evaluate(`document.querySelector('#clear-outfit').click()`);
+ assert.equal(await evaluate(`document.querySelectorAll('#catalog input:checked').length`),0);
+ assert.equal(await evaluate(`document.querySelector('#apply-outfit').disabled`),true);
+ assert.equal(await evaluate(`Array.from(document.querySelectorAll('#catalog select'),s=>getComputedStyle(s).backgroundRepeat).every(v=>v==='no-repeat')`),true);
+ await evaluate(`document.querySelector('#reset-outfit').click()`);
+ const restoredSelection=await evaluate(`Array.from(document.querySelectorAll('#catalog input:checked'),c=>({id:c.value,variant:document.querySelector('[data-variant="'+c.value+'"]').value}))`);
+ assert.deepEqual(restoredSelection,initialSelection);
  const result=await evaluate(`(()=>{for(const c of document.querySelectorAll('#catalog input:checked')){c.checked=false;c.dispatchEvent(new Event('change'));}for(const id of ['tee','shirt','wind']){const c=document.querySelector('#catalog input[value="'+id+'"]');c.checked=true;c.dispatchEvent(new Event('change'));}const v=document.querySelector('[data-variant="shirt"]');v.value='flannel';v.dispatchEvent(new Event('change'));return document.querySelector('.combo-score').textContent;})()`);
  assert.match(result,/4\.5/);
  await evaluate(`document.querySelector('#apply-outfit').click();document.querySelector('#feedback input[value="0"]').checked=true;document.querySelector('#feedback').requestSubmit();`);
@@ -75,5 +95,5 @@ try{
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
  await evaluate(`document.querySelector('[data-view="outfits"]').click();document.querySelector('#outfits').scrollIntoView({behavior:'instant'})`);await screenshot('mobile-builder');
  assert.deepEqual(errors,[]);
- console.log('Browser PASS: login, settings, custom layering, variants, daily update without duplicates, edit preload, deletion, style preferences, main tabs, 3-hour forecast, day-specific drafts; responsive widths 390 / 768 / 1440. Screenshots in .qa/');
+ console.log('Browser PASS: login, reset/clear recommendation, settings, custom layering, variants, daily update without duplicates, edit preload, deletion, style preferences, main tabs, 3-hour forecast, day-specific drafts; responsive widths 390 / 768 / 1440. Screenshots in .qa/');
 }finally{if(ws?.readyState===1)ws.close();browser.kill();local.kill();}

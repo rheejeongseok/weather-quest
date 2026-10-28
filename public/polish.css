@@ -1,0 +1,188 @@
+/* Shared control spacing and interaction states. */
+:root {
+  --control-radius: 10px;
+  --control-line: #d6deeb;
+  --focus-ring: #1264ed26;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23748198' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E");
+  --check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 12 4 4 8-9'/%3E%3C/svg%3E");
+}
+body { background: #f8faff; }
+main { min-height: 65vh; }
+h1, h2, h3, .clothing-check span { word-break: keep-all; overflow-wrap: anywhere; }
+.brand-mark { background: transparent; border-radius: 0; }
+.brand-mark img { display: block; width: 32px; height: 32px; }
+.header-inner { padding-top: 20px; padding-bottom: 20px; }
+nav { gap: 6px; }
+nav a { display: inline-flex; align-items: center; gap: 7px; padding: 11px 13px; border-radius: 10px; transition: background .15s, color .15s; }
+nav a:hover { background: #f1f5fc; }
+nav a[aria-current="page"] { background: #edf4ff; }
+.nav-icon { width: 17px; height: 17px; flex-shrink: 0; }
+.profile-button { border-color: var(--control-line); border-radius: 20px; padding: 10px 15px; }
+.dashboard-head { margin-bottom: 28px; }
+.dashboard-head h1 { line-height: 1.5; }
+.panel, .personal-panel, .weather-panel { border-radius: 18px; }
+.panel { padding: 32px; box-shadow: 0 3px 18px #23456803; }
+.section-heading { align-items: flex-start; margin-bottom: 28px; }
+.section-heading h2 { font-size: 24px; line-height: 1.5; margin-bottom: 9px; }
+.section-heading .muted { line-height: 1.85; }
+.builder-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+.builder-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; font-size: 12px; padding: 10px 13px; border-radius: 9px; white-space: nowrap; }
+.button-icon { width: 15px; height: 15px; flex-shrink: 0; }
+.subtle-button { background: #f5f7fb; color: #66758c; border: 1px solid #e2e7f0; }
+.subtle-button:hover { background: #eaf0f9; color: #315b9d; }
+button { transition: background .15s, border-color .15s, box-shadow .15s; }
+button:active:not(:disabled) { filter: brightness(.97); }
+button:disabled { opacity: .52; }
+button:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid #76aaff; outline-offset: 3px; }
+input:not([type="checkbox"]):not([type="radio"]), select {
+  min-height: 48px;
+  border-radius: var(--control-radius);
+  border-color: var(--control-line);
+  color: #30415e;
+  line-height: 1.5;
+  transition: border-color .15s, box-shadow .15s;
+}
+input:not([type="checkbox"]):not([type="radio"]):hover:not([readonly]), select:hover:not(:disabled) { border-color: #9cb8df; }
+input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-visible { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px var(--focus-ring); }
+select { appearance: none; -webkit-appearance: none; background-image: var(--select-arrow); background-repeat: no-repeat; background-size: 18px; background-position: right 14px center; padding: 13px 42px 13px 14px; cursor: pointer; }
+select:disabled { background-color: #f4f6fa; background-image: var(--select-arrow); background-repeat: no-repeat; background-size: 18px; background-position: right 14px center; color: #8a96a9; cursor: not-allowed; opacity: .85; }
+option { color: #30415e; background: #fff; }
+input[readonly] { border-style: dashed; background: #f8fafd; }
+form { gap: 24px; }
+label { gap: 10px; color: #465671; }
+.field-pair { gap: 18px; }
+form > button[type="submit"] { min-height: 50px; margin-top: 2px; border-radius: 10px; }
+.catalog { gap: 12px; }
+.clothing-card { padding: 15px 13px; border-color: #dfe6f1; border-radius: 13px; transition: border-color .15s, background .15s, box-shadow .15s; }
+.clothing-card:hover { border-color: #a9c5ef; }
+.clothing-card.selected { border-color: #397ff0; box-shadow: 0 0 0 1px #397ff0; background: #f5f9ff; }
+.clothing-check { gap: 9px; min-height: 38px; align-items: center; color: #304462; }
+.clothing-check .garment-icon { width: 29px; height: 29px; color: #6f91c1; }
+.clothing-check span { line-height: 1.65; }
+.clothing-check input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 20px; height: 20px; min-width: 20px; margin: 0; padding: 0; border: 1.5px solid #b9c7da; border-radius: 6px; background-color: white; background-position: center; background-repeat: no-repeat; background-size: 17px; cursor: pointer; transition: background-color .15s, border-color .15s; }
+.clothing-check input[type="checkbox"]:checked { background-color: var(--blue); border-color: var(--blue); background-image: var(--check-mark); }
+.clothing-check input[type="checkbox"]:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); border-color: var(--blue); }
+.clothing-card select { min-height: 41px; font-size: 12px; padding: 10px 32px 10px 11px; border-radius: 8px; background-position: right 10px center; background-size: 15px; margin-top: 13px; }
+.clothing-card select:disabled { background-position: right 10px center; background-size: 15px; }
+.clothing-card small { font-size: 10px; line-height: 1.8; margin-top: 10px; color: #7c8da7; min-height: 18px; }
+.clothing-group { margin-bottom: 0; }
+.clothing-group legend { font-size: 13px; margin-bottom: 15px; color: #496182; }
+.category-tabs { gap: 8px; margin-bottom: 20px; padding: 2px 1px 4px; scrollbar-width: none; }
+.category-tabs::-webkit-scrollbar { display: none; }
+.category-tabs button { border-radius: 20px; min-height: 38px; padding: 9px 14px; font-size: 11px; }
+.category-tabs button[aria-pressed="true"] { border-color: #c5d9fc; }
+.combination { border-radius: 15px; padding: 25px; background: #f3f7ff; border-color: #d6e3fa; }
+.combo-score { margin-top: 18px; margin-bottom: 6px; font-variant-numeric: tabular-nums; }
+.combo-message { margin-top: 18px; margin-bottom: 20px; }
+.selected-items > div { padding: 14px 0; }
+.selected-items small { line-height: 1.6; margin-top: 5px; }
+.remove { display: grid; place-items: center; min-width: 30px; min-height: 30px; border-radius: 50%; }
+.combination > button { min-height: 47px; border-radius: 9px; margin-top: 20px; }
+.feedback-outfit { border: 1px solid #e2e9f4; border-radius: 12px; padding: 23px; }
+.feedback-chips { gap: 8px; margin: 17px 0; }
+.feedback-chips span { border-radius: 7px; padding: 8px 11px; }
+.feedback-outfit a { display: inline-block; padding: 5px 0; }
+.ratings { gap: 11px; }
+.ratings label { min-height: 90px; border-radius: 12px; padding: 18px 6px; gap: 10px; transition: border-color .15s, background .15s; }
+.ratings label:hover { border-color: #a8c7f8; background: #f8fbff; }
+.ratings label:has(input:checked) { box-shadow: inset 0 0 0 1px var(--blue); }
+.rating-mark { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: #f1f5fb; line-height: 1; }
+.ratings label:has(input:checked) .rating-mark { background: #dceaff; color: var(--blue); }
+.history-row { gap: 24px; padding: 23px 0; }
+.history-row p { line-height: 1.9; }
+.history-actions { gap: 12px; }
+.history-actions .actions { gap: 7px; }
+.history-actions button { min-height: 34px; border-radius: 8px; padding: 7px 12px; }
+.history-pagination { border-top: 1px solid var(--line); padding-top: 22px; margin-top: 5px; }
+details > summary { display: flex; align-items: center; justify-content: space-between; gap: 15px; min-height: 30px; line-height: 1.65; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::after { content: ""; display: block; float: none; width: 18px; height: 18px; flex-shrink: 0; background: var(--select-arrow) center / 18px no-repeat; transition: transform .15s; }
+details[open] > summary::after { content: ""; transform: rotate(180deg); }
+.source-details { padding: 25px 4px; }
+.personal-panel { background: #fff; align-self: start; }
+.personal-panel a { display: inline-block; min-height: 30px; padding: 5px 0; }
+.personal-panel .quick-link { display: block; margin-top: 15px; margin-bottom: 8px; }
+.weather-metrics { gap: 30px; }
+.weather-metrics > span { min-width: 75px; }
+.forecast-heading { margin-top: 24px; margin-bottom: 15px; }
+.forecast-scroll { border: 1px solid #ffffff66; scrollbar-gutter: stable; }
+.forecast-table td, .forecast-table th { padding-top: 12px; padding-bottom: 12px; }
+.temperature, .day-range b, .forecast-table, .personal-numbers strong { font-variant-numeric: tabular-nums; }
+.site-footer { margin-top: 10px; padding-top: 29px; padding-bottom: 29px; color: #8794a9; }
+#notice { text-align: center; line-height: 1.7; }
+@media (max-width: 1100px) and (min-width: 701px) {
+  .header-inner { gap: 13px; padding-left: 24px; padding-right: 24px; }
+  nav { gap: 1px; }
+  nav a { font-size: 12px; gap: 5px; padding: 10px 8px; }
+  .nav-icon { width: 15px; height: 15px; }
+  .brand { font-size: 18px; }
+  .profile-button { font-size: 11px; padding: 10px 12px; }
+  .builder-actions { max-width: 155px; }
+}
+@media (max-width: 700px) {
+  html { scroll-padding-top: 85px; }
+  .header-inner { padding: 15px 18px; }
+  .brand-mark img { width: 29px; height: 29px; }
+  .brand-mark { width: 29px; height: 29px; }
+  .brand-text { line-height: 1.35; }
+  .profile-button { min-height: 35px; padding: 8px 12px; }
+  main { padding: 25px 16px 32px; }
+  .dashboard-head { margin-bottom: 24px; }
+  .dashboard-head p { line-height: 1.9; }
+  .panel { padding: 24px 18px; border-radius: 15px; }
+  .section-heading { margin-bottom: 24px; }
+  .section-heading h2, #outfits > .section-heading h2 { font-size: 20px; line-height: 1.6; }
+  .section-heading .muted { font-size: 12px; line-height: 1.8; }
+  .builder-actions { justify-content: flex-start; gap: 8px; margin-top: 16px; padding-top: 0; }
+  .builder-actions button { min-height: 41px; padding: 10px 12px; font-size: 11px; }
+  .mobile-summary { top: 72px; padding: 13px 12px; margin-bottom: 22px; border-radius: 10px; }
+  .catalog { gap: 10px; }
+  .clothing-card { padding: 12px 10px; border-radius: 11px; }
+  .clothing-check { gap: 7px; min-height: 42px; font-size: 12px; }
+  .clothing-check input[type="checkbox"] { width: 19px; height: 19px; min-width: 19px; border-radius: 6px; }
+  .clothing-check .garment-icon { display: none; }
+  .clothing-card select { padding: 11px 28px 11px 9px; background-position: right 8px center; font-size: 12px; min-height: 42px; margin-top: 9px; }
+  .clothing-card select:disabled { background-position: right 8px center; }
+  .clothing-card small { font-size: 10px; line-height: 1.8; min-height: 35px; margin-top: 9px; }
+  .category-tabs { gap: 7px; margin-bottom: 19px; }
+  .category-tabs button { font-size: 10px; padding: 9px 12px; min-height: 37px; }
+  .clothing-group legend { font-size: 12px; margin-bottom: 14px; }
+  .combination { padding: 22px; margin-top: 10px; }
+  .combo-score { font-size: 44px; }
+  .combination .fine { font-size: 11px; line-height: 1.85; }
+  .field-pair { gap: 12px; }
+  label { font-size: 12px; gap: 10px; }
+  .field-pair select { padding-right: 35px; background-position: right 10px center; }
+  select { font-size: 14px; padding-left: 12px; }
+  input:not([type="checkbox"]):not([type="radio"]) { font-size: 16px; }
+  form { gap: 23px; }
+  .ratings { gap: 6px; }
+  .ratings label { min-height: 83px; padding: 14px 3px; font-size: 10px; line-height: 1.6; gap: 8px; border-radius: 10px; }
+  .rating-mark { font-size: 18px; width: 29px; height: 29px; }
+  .feedback-outfit { padding: 18px; }
+  .feedback-chips span { font-size: 11px; padding: 7px 9px; }
+  .history-row { gap: 12px; padding: 20px 0; align-items: flex-start; }
+  .history-row p { font-size: 12px; }
+  .history-row > div > small { line-height: 1.8; }
+  .history-actions { min-width: 84px; gap: 11px; padding-top: 1px; }
+  .history-actions button { font-size: 10px; min-height: 34px; padding: 6px 9px; }
+  .history-actions .actions { gap: 5px; }
+  .personal-panel { padding: 23px; border-radius: 15px; }
+  .personal-panel .target-explanation { margin-top: 14px; line-height: 1.9; }
+  .personal-panel .quick-link { margin-top: 9px; }
+  .weather-panel { border-radius: 15px; padding: 23px; }
+  .weather-metrics { gap: 12px; }
+  .weather-metrics > span { min-width: 60px; }
+  .weather-metrics b { margin-top: 7px; }
+  .weather-compare { line-height: 1.9; padding-top: 19px; }
+  .forecast-heading { margin-top: 23px; }
+  .site-header #nav:not([hidden]) { padding: 8px 8px calc(9px + env(safe-area-inset-bottom)); }
+  .site-header #nav a { display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 8px 2px; font-size: 10px; line-height: 1.4; min-height: 53px; border-radius: 11px; }
+  .site-header #nav .nav-icon { display: block; width: 19px; height: 19px; }
+  body:has(#nav:not([hidden])) { padding-bottom: 88px; }
+  #notice { bottom: 100px; font-size: 12px; padding: 13px 18px; border-radius: 11px; }
+  .site-footer { margin: 0 16px; padding: 25px 3px; }
+}
+@media (forced-colors: active) {
+  .clothing-check input[type="checkbox"] { appearance: auto; -webkit-appearance: auto; }
+}
