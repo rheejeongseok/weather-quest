@@ -1,0 +1,6 @@
+export function threeHourly(weather,date){
+ const h=weather?.hourly;if(!h)return [];
+ return h.time.flatMap((time,i)=>time.startsWith(date+'T')&&Number(time.slice(11,13))%3===0?[{time,hour:Number(time.slice(11,13)),temp:h.temperature_2m[i],feels:h.apparent_temperature[i],rain:h.precipitation_probability[i],wind:h.wind_speed_10m[i],code:h.weather_code?.[i],isDay:h.is_day?.[i]??(Number(time.slice(11,13))>=6&&Number(time.slice(11,13))<18?1:0)}]:[]);
+}
+export function dayRange(weather,date){const i=weather?.daily?.time?.indexOf(date)??-1;if(i>=0)return {min:weather.daily.temperature_2m_min[i],max:weather.daily.temperature_2m_max[i]};const h=weather?.hourly;if(!h)return null;const temps=h.time.flatMap((time,i)=>time.startsWith(date+'T')&&Number.isFinite(h.temperature_2m[i])?[h.temperature_2m[i]]:[]);return temps.length?{min:Math.min(...temps),max:Math.max(...temps)}:null;}
+export function sky(code,isDay=1){if(code===undefined||code===null)return {icon:'—',text:'날씨 정보 없음'};if(code===0)return {icon:isDay?'☀️':'🌙',text:'맑음'};if(code<=2)return {icon:isDay?'🌤️':'☁️',text:'구름 조금'};if(code===3)return {icon:'☁️',text:'흐림'};if(code<=48)return {icon:'🌫️',text:'안개'};if(code>=95)return {icon:'⛈️',text:'뇌우'};if([71,73,75,77,85,86].includes(code))return {icon:'🌨️',text:'눈'};return {icon:'🌧️',text:'비'};}

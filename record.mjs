@@ -1,4 +1,11 @@
 import {outfit,clamp,SCORE_VERSION} from './lib.mjs';
+export const dailyRecord=r=>({...r,id:`day:${r.date}`});
+export function dailyRecords(records){
+ const days=new Map();
+ for(const r of records){const key=r.date||r.id;const old=days.get(key);const canonical=r.id===`day:${r.date}`;const oldCanonical=old?.id===`day:${old?.date}`;
+  if(!old||(canonical&&!oldCanonical)||(canonical===oldCanonical&&String(r.updatedAt||'').localeCompare(String(old.updatedAt||''))>=0))days.set(key,r);
+ }return [...days.values()];
+}
 export function validateRecord(r,{importing=false}={}){
  if(!r||typeof r.id!=='string'||!r.id.length||r.id.length>80||!/^\d{4}-\d{2}-\d{2}$/.test(r.date))throw Error('착용 기록 형식이 올바르지 않습니다.');
  if(r.itemOptions!==undefined&&(!r.itemOptions||typeof r.itemOptions!=='object'||Array.isArray(r.itemOptions)))throw Error('소재·두께 정보가 올바르지 않습니다.');
