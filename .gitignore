@@ -6,3 +6,6 @@ dist/
 .env.local
 .env.*.local
 .vercel/
+.preview-browser/
+.qa/
+reference.png
