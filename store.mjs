@@ -8,7 +8,9 @@ export function createSupabaseStore({url,key,fetcher=fetch}){
   if(prefer)headers.Prefer=prefer;
   const response=await fetcher(base+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(12000)});
   if(!response.ok){console.error('Supabase request failed:',response.status,path.split('?')[0]);throw Error('DB에 연결하지 못했어요. Supabase SQL 실행 및 서버 환경변수 설정을 확인해 주세요.');}
-  return response.status===204?null:response.json();
+  const text=await response.text();
+  if(!text.trim())return null;
+  try{return JSON.parse(text);}catch{throw Error('DB 서버가 올바른 JSON 응답을 보내지 않았어요. 잠시 후 다시 시도해 주세요.');}
  }
  const query=value=>encodeURIComponent(value);
  return {
