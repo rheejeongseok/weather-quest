@@ -1,3 +1,4 @@
+import {buildComfortModel} from './comfort-model.mjs';
 export const clothes = [
  {id:'thermal',name:'발열·보온 이너',score:1,slot:'inner',roles:['inner'],icon:'👕'},
  {id:'tee',name:'반팔 티셔츠',score:1,slot:'base',roles:['base'],icon:'👕'},
@@ -42,8 +43,9 @@ export function outfit(ids,itemOptions={}){
  return {items,score:Math.round(items.reduce((n,c)=>n+c.score,0)*10)/10};
 }
 export function compareOutfit(ids,itemOptions,target,wind=0){
- const result=outfit(ids,itemOptions);const diff=Math.round((result.score-target)*10)/10;
- return {...result,diff,message:Math.abs(diff)<=.6?'목표 보온량과 비슷한 조합이에요.':diff<0?`목표보다 ${Math.abs(diff)}점 가벼워요. 중간옷이나 겉옷을 더해 보세요.`:`목표보다 ${diff}점 따뜻해요. 활동 중에는 더울 수 있어요.`,windWarning:wind>=20&&!result.items.some(c=>c.windproof)?'바람이 강해요. 보온 점수와 별개로 바람을 막는 겉옷을 고려해 주세요.':''};
+ const result=outfit(ids,itemOptions);const range=typeof target==='number'?{lower:target-.6,upper:target+.6}:target;
+ const diff=Math.round((result.score<range.lower?result.score-range.lower:result.score>range.upper?result.score-range.upper:0)*10)/10;
+ return {...result,diff,inRange:diff===0,message:diff===0?'예상 보온 범위와 비슷한 조합이에요.':diff<0?`예상 범위보다 ${Math.abs(diff)}점 가벼워요. 중간옷이나 겉옷을 더해 보세요.`:`예상 범위보다 ${diff}점 따뜻해요. 활동 중에는 더울 수 있어요.`,windWarning:wind>=20&&!result.items.some(c=>c.windproof)?'바람이 강해요. 보온 점수와 별개로 바람을 막는 겉옷을 고려해 주세요.':''};
 }
 // 실제 착용은 고정된 슬롯으로 제한하지 않습니다. 셔츠 두 장 등 동일 종류의 중복만 구분할 수 없습니다.
 export function selectedClothes(ids){
@@ -69,24 +71,9 @@ export function sensitivityPrior(profile,temp=null){
  return clamp(cold*clamp((22-temp)/12,0,1)-heat*clamp((temp-14)/12,0,1),-2,2);
 }
 export function comfortNotes(profile,weather){const notes=[];if(profile.commute==='transit')notes.push('대중교통과 실내에서는 더울 수 있어요. 벗기 쉬운 겉옷을 활용해 보세요.');if(profile.commute==='car')notes.push('자동차 이동 위주라도 실제 야외에 머무는 시간에 맞춰 준비해 주세요.');if(profile.sweat==='high')notes.push('땀이 나기 쉬운 편이에요. 통기성과 벗어서 조절하기 쉬운 조합을 고려해 주세요.');if(profile.windSensitivity==='high'&&weather.wind>=12)notes.push('바람에 민감한 편이고 바람도 있어요. 방풍 겉옷을 우선 고려했어요.');return notes;}
-export function correction(profile,records,temp=null){
- const prior=sensitivityPrior(profile,temp);
- let total=prior*2,weight=2;
- for(const r of records){
-  if(r.context!=='outdoor'||!Number.isFinite(r.weather?.feels)||!Number.isInteger(r.rating)||r.deleted)continue;
-  let score;try{score=r.scoreVersion===SCORE_VERSION?r.score:outfit(r.items).score;}catch{continue;}
-  if(!Number.isFinite(score))continue;
-  const w=Number.isFinite(temp)?Math.exp(-.5*((r.weather.feels-temp)/5)**2):1;
-  const residual=clamp(score-r.rating*.8-scoreFor(r.weather.feels)-activityAdjustment(r.activity)-exposureAdjustment(r.exposure,r.weather.feels),-4,4);
-  total+=residual*w;weight+=w;
- }
- return Math.round(clamp(total/weight,-4,4)*10)/10;
-}
-export function warmthTarget(profile,records,temp){
- const base=scoreFor(temp),offset=correction(profile,records,temp),activity=activityAdjustment(profile.activity),exposure=exposureAdjustment(profile.exposure,temp);
- const samples=records.filter(r=>r.context==='outdoor'&&!r.deleted&&Number.isFinite(r.weather?.feels)&&Math.abs(r.weather.feels-temp)<=5).length;
- return {base:Math.round(base*10)/10,offset,activity,exposure,target:Math.round(clamp(base+offset+activity+exposure,1,12)*10)/10,samples,prior:Math.round(sensitivityPrior(profile,temp)*10)/10};
-}
+export function warmthTarget(profile,records,temp){return buildComfortModel(profile,records,temp,{scoreFor,activityAdjustment,exposureAdjustment,sensitivityPrior,outfit,scoreVersion:SCORE_VERSION});}
+export function correction(profile,records,temp=null){const temperatures=records.filter(r=>!r.deleted&&r.context==='outdoor'&&Number.isFinite(r.weather?.feels)).map(r=>r.weather.feels);const reference=Number.isFinite(temp)?temp:temperatures.length?temperatures.reduce((a,b)=>a+b,0)/temperatures.length:20;return warmthTarget(profile,records,reference).offset;}
+
 let candidates;
 function outfitCandidates(){
  if(candidates)return candidates;candidates=[];
@@ -97,17 +84,20 @@ function outfitCandidates(){
  }return candidates;
 }
 export function recommend(temp,offset,activity='normal',wind=0,style='balanced',options={}){
- const target=clamp(scoreFor(temp)+offset+activityAdjustment(activity),1,12);
+ const model=options.model;const target=model?.target??clamp(scoreFor(temp)+offset+activityAdjustment(activity),1,12);const range=model?.range??{lower:target-.6,upper:target+.6};
  const preferred=style==='simple'?(target<2?1:2):style==='layered'?(target>=5?3:target>=2?2:1):(target>=6?3:target>=2?2:1);
  let best=null;
- for(const c of outfitCandidates()){
-  const error=Math.abs(c.score-target);
+ const known=[];
+ for(const r of model?.comfortable||[]){try{const result=outfit(r.items,r.itemOptions);const items=result.items;known.push({items,score:result.score,inner:items.find(c=>c.slot==='inner'),base:items.find(c=>c.roles.includes('base')),outer:[...items].reverse().find(c=>c.roles.includes('outer')),known:true});}catch{/* Old or unsupported clothing entries are not recommendation candidates. */}}
+ for(const c of [...outfitCandidates(),...known]){
+  const error=Math.abs(c.score-target);const distance=Math.max(range.lower-c.score,0,c.score-range.upper);
   const shape=Math.abs(c.items.length-preferred)*(style==='balanced' ? .25 : .55);
   const windThreshold=options.windSensitivity==='high'?12:options.windSensitivity==='low'?25:20;
   const windPenalty=wind>=windThreshold&&!c.outer?.windproof ? 2 : 0;
   const innerPenalty=style==='simple'&&c.inner ? .6 : 0;
   const shellPenalty=c.outer&&!c.outer.windproof&&temp<5 ? .08 : 0;
-  const cost=Math.max(0,error-.6)*5+error*.12+shape+windPenalty+innerPenalty+shellPenalty;
-  if(!best||cost<best.cost)best={items:c.items,score:c.score,target:Math.round(target*10)/10,cost,style};
+  const familiarBonus=c.known&&distance===0 ? .18 : 0;
+  const cost=distance*5+error*.12+shape+windPenalty+innerPenalty+shellPenalty-familiarBonus;
+  if(!best||cost<best.cost)best={items:c.items,score:c.score,target:Math.round(target*10)/10,cost,style,range,fromRecord:!!c.known};
  }return best;
 }

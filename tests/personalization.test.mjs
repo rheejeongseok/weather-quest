@@ -10,7 +10,7 @@ test('target is warmer as temperature falls and activity offsets remain separate
  assert.equal(warmthTarget({...profile,activity:'still'},[],10).target,scoreFor(10)+1);
 });
 test('cold and hot feedback influence nearby temperatures, not unrelated seasons',()=>{
- const cold=Array.from({length:6},()=>record(-1));const hot=Array.from({length:6},()=>record(1));
+ const cold=Array.from({length:6},(_,i)=>({...record(-1),date:`2026-10-${String(i+20).padStart(2,'0')}`}));const hot=Array.from({length:6},(_,i)=>({...record(1),date:`2026-10-${String(i+20).padStart(2,'0')}`}));
  assert.ok(correction(profile,cold,10)>0);assert.ok(correction(profile,hot,10)<0);
  assert.equal(correction(profile,cold,30),0);assert.equal(warmthTarget(profile,cold,10).samples,6);
  assert.equal(correction(profile,cold.map(r=>({...r,context:'indoor'})),10),0);

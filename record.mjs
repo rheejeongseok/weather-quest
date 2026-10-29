@@ -16,6 +16,6 @@ export function validateRecord(r,{importing=false}={}){
  const itemOptions=Object.fromEntries(result.items.map(c=>[c.id,c.variantId]));
  return {id:r.id,date:r.date,items:r.items,itemOptions,score:legacy&&Number.isFinite(r.score)?clamp(r.score,0,100):result.score,scoreVersion:legacy?1:SCORE_VERSION,
   garments:legacy?undefined:result.items.map(c=>({id:c.id,name:c.name,variantId:c.variantId,variantName:c.variantName,material:c.material,score:c.score})),
-  rating:r.rating,context:r.context,activity:['normal','active','still'].includes(r.activity)?r.activity:null,exposure:Object.hasOwn(preferenceChoices.exposure,r.exposure)?r.exposure:null,weather:{temp:r.weather.temp,feels:r.weather.feels,city:String(r.weather.city||'').slice(0,40),hour:clamp(Number.isFinite(Number(r.weather.hour))?Number(r.weather.hour):8,0,23)},
+  rating:r.rating,context:r.context,activity:['normal','active','still'].includes(r.activity)?r.activity:null,exposure:Object.hasOwn(preferenceChoices.exposure,r.exposure)?r.exposure:null,weather:{temp:r.weather.temp,feels:r.weather.feels,wind:Number.isFinite(r.weather.wind)&&r.weather.wind>=0?r.weather.wind:null,city:String(r.weather.city||'').slice(0,40),hour:clamp(Number.isFinite(Number(r.weather.hour))?Number(r.weather.hour):8,0,23)},
   updatedAt:importing&&typeof r.updatedAt==='string'&&Number.isFinite(Date.parse(r.updatedAt))?new Date(r.updatedAt).toISOString():new Date().toISOString()};
 }

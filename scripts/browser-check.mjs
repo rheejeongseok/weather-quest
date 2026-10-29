@@ -41,6 +41,7 @@ try{
  await evaluate(`document.querySelector('#settings').requestSubmit()`);
  await waitFor(()=>evaluate('!!document.querySelector("#catalog")'));
  assert.equal(await evaluate('document.querySelector("#outfits").hidden'),true);
+ assert.equal(await evaluate('!!document.querySelector(".status-provisional")'),true);
  await screenshot('desktop-dashboard');
  await evaluate(`document.querySelector('[data-view="outfits"]').click()`);
  assert.equal(await evaluate('document.querySelector(".overview").hidden'),true);
@@ -88,7 +89,17 @@ try{
  await screenshot('desktop-settings');
  await evaluate(`document.querySelector('[data-view="weather"]').click()`);
  await evaluate(`document.querySelector('.target-details summary').click()`);
- assert.ok(await evaluate(`document.querySelector('.target-details').textContent.includes('5.8')`));
+ assert.ok(await evaluate(`document.querySelector('.target-details').textContent.includes('예상 보온 범위')`));
+ await evaluate(`(async()=>{const currentDate=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date());const w=await fetch('/api/weather?city=seoul').then(r=>r.json());const index=w.hourly.time.indexOf(currentDate+'T08:00');for(let i=0;i<3;i++){const date=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date(Date.now()-i*86400000));const response=await fetch('/api/record',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:'${data.profile.id}',record:{id:'neutral-'+i,date,items:['shirt','light'],rating:0,context:'outdoor',activity:'normal',exposure:'long',weather:{temp:w.hourly.temperature_2m[index],feels:w.hourly.apparent_temperature[index],hour:8,city:'브라우저테스트'}}})});if(!response.ok)throw Error(await response.text());}})()`);
+ await send('Page.reload');await waitFor(()=>evaluate('!!document.querySelector(".status-personal")'));
+ assert.equal(await evaluate('document.querySelector(".range-headline strong").textContent'),'5.5~6.5점');
+ assert.equal(await evaluate('document.querySelectorAll(".evidence-card").length'),3);
+ await screenshot('desktop-personal-range');
+ await evaluate(`document.querySelector('[data-use-date]').click()`);
+ assert.equal(await evaluate('document.querySelector("#outfits").hidden'),false);
+ assert.match(await evaluate('document.querySelector(".combo-score").textContent'),/^6점$/);
+ assert.match(await evaluate('document.querySelector(".target").textContent'),/5\.5~6\.5/);
+ await evaluate(`document.querySelector('[data-view="weather"]').click()`);
  for(const [width,height,name] of [[390,844,'mobile-dashboard'],[768,1024,'tablet-dashboard']]){
   await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<600});
   await evaluate('window.scrollTo(0,0)');await pause(200);
