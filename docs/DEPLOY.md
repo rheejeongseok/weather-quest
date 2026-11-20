@@ -1,3 +1,5 @@
+> 프로젝트 이름이 Cloth to You로 바뀌었습니다. 아래 Vercel·GitHub 주소는 이름 변경 전 주소입니다. 대시보드에서 프로젝트·저장소 이름을 바꾸면 주소도 함께 갱신해 주세요.
+
 # Supabase + Vercel 설정
 
 ## 1. Supabase 테이블 만들기

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {warmthTarget,compareOutfit,recommend,outfit} from '../lib.mjs';
+import {warmthTarget,compareOutfit,recommend,outfit,SCORE_VERSION} from '../lib.mjs';
 const profile={cold:0,heat:0,activity:'normal',exposure:'medium'};
-const record=(index,score,rating=0,extra={})=>({id:`day:2026-10-${index}`,date:`2026-10-${index}`,updatedAt:`2026-10-${index}T08:00:00Z`,items:['shirt','light'],scoreVersion:2,score,rating,context:'outdoor',activity:'normal',exposure:'medium',weather:{feels:10,temp:11},...extra});
+const record=(index,score,rating=0,extra={})=>({id:`day:2026-10-${index}`,date:`2026-10-${index}`,updatedAt:`2026-10-${index}T08:00:00Z`,items:['shirt','light'],scoreVersion:SCORE_VERSION,score,rating,context:'outdoor',activity:'normal',exposure:'medium',weather:{feels:10,temp:11},...extra});
 test('no usable observations produces a visibly provisional range',()=>{
  const model=warmthTarget(profile,[],10);assert.equal(model.source,'provisional');assert.equal(model.samples,0);assert.ok(model.range.upper>model.range.lower);assert.ok(model.target>=model.range.lower&&model.target<=model.range.upper);
 });
@@ -28,7 +28,7 @@ test('mismatched activity/exposure evidence has less influence than a matching o
 });
 test('a learned comfortable score is not constrained by the old 12-point provisional ceiling',()=>{
  const model=warmthTarget(profile,[record(20,14),record(21,14),record(22,14)],-1);
- assert.equal(model.source,'provisional');const close=warmthTarget(profile,[record(20,14),record(21,14),record(22,14)],10);assert.equal(close.target,14);assert.ok(close.range.upper>12);
+ assert.equal(model.source,'estimated');assert.ok(model.target>warmthTarget(profile,[],-1).target,'far records shift the quick estimate');assert.equal(warmthTarget(profile,[record(20,14)],30).source,'provisional');const close=warmthTarget(profile,[record(20,14),record(21,14),record(22,14)],10);assert.equal(close.target,14);assert.ok(close.range.upper>12);
 });
 test('recommendations and manual comparisons use the range rather than a single midpoint',()=>{
  const model=warmthTarget(profile,[record(20,6.5),record(21,6.5)],10);

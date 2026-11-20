@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {preferenceSettings,sensitivityPrior,exposureAdjustment,warmthTarget,correction,recommend,comfortNotes,scoreFor} from '../lib.mjs';
+import {preferenceSettings,sensitivityPrior,exposureAdjustment,warmthTarget,correction,recommend,comfortNotes,scoreFor,SCORE_VERSION} from '../lib.mjs';
 test('new preference fields have backward-compatible defaults and reject unknown enum values',()=>{
- const expected={exposure:'medium',commute:'mixed',windSensitivity:'normal',sweat:'normal'};
+ const expected={exposure:'medium',commute:'mixed',windSensitivity:'normal',sweat:'normal',coldSpot:'none',swingSensitivity:'normal',inner:'any',outerType:'any',topType:'any'};
  assert.deepEqual(preferenceSettings({}),expected);assert.deepEqual(preferenceSettings({exposure:'invalid',commute:'invalid'}),expected);
 });
 test('both cold and heat sensitivity are retained for different temperature ranges',()=>{
@@ -10,7 +10,7 @@ test('both cold and heat sensitivity are retained for different temperature rang
 });
 test('exposure affects cold conditions and is removed from personal sensitivity estimates',()=>{
  assert.ok(exposureAdjustment('long',0)>0);assert.ok(exposureAdjustment('short',0)<0);assert.equal(exposureAdjustment('long',30),0);
- const p={cold:0,heat:0};const r={scoreVersion:2,score:scoreFor(5)+exposureAdjustment('long',5),context:'outdoor',exposure:'long',rating:0,weather:{feels:5}};
+ const p={cold:0,heat:0};const r={scoreVersion:SCORE_VERSION,score:scoreFor(5)+exposureAdjustment('long',5),context:'outdoor',exposure:'long',rating:0,weather:{feels:5}};
  assert.equal(correction(p,[r],5),0);
  const m=warmthTarget({...p,exposure:'long'},[],5);assert.equal(m.target,7.7);
 });

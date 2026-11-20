@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {warmthTarget,correction,recommend,outfit,scoreFor} from '../lib.mjs';
+import {warmthTarget,correction,recommend,outfit,scoreFor,SCORE_VERSION} from '../lib.mjs';
 const profile={cold:0,heat:0,activity:'normal'};
-const record=(rating=0)=>({date:'2026-10-28',items:['shirt','light'],score:6,scoreVersion:2,rating,context:'outdoor',activity:'normal',weather:{feels:10}});
+const record=(rating=0)=>({date:'2026-10-28',items:['shirt','light'],score:6,scoreVersion:SCORE_VERSION,rating,context:'outdoor',activity:'normal',weather:{feels:10}});
 test('target is warmer as temperature falls and activity offsets remain separate',()=>{
  const temps=[30,25,20,15,10,5,0,-5,-10];const targets=temps.map(t=>warmthTarget(profile,[],t).target);
  for(let i=1;i<targets.length;i++)assert.ok(targets[i]>=targets[i-1]);

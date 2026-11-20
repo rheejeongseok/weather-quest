@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {outfit,compareOutfit,clothes,correction} from '../lib.mjs';
+import {outfit,compareOutfit,clothes,correction,SCORE_VERSION} from '../lib.mjs';
 import {validateRecord} from '../record.mjs';
 const example={id:'warmth-test',date:'2026-10-28',items:['shirt','light'],rating:0,context:'outdoor',weather:{temp:10,feels:8,hour:8,city:'서울'}};
 test('thicker variants give warmer combinations without a material-only multiplier',()=>{
@@ -18,11 +18,20 @@ test('manual combinations report lighter, similar and warmer and warn about wind
 });
 test('server recalculates selected variants and persists their snapshot',()=>{
  const r=validateRecord({...example,itemOptions:{shirt:'flannel',light:'warm'},score:99});
- assert.equal(r.score,7.5);assert.equal(r.scoreVersion,2);assert.equal(r.garments[0].variantName,'플란넬·기모 셔츠');
+ assert.equal(r.score,7.5);assert.equal(r.scoreVersion,SCORE_VERSION);assert.equal(r.garments[0].variantName,'플란넬·기모 셔츠');
  assert.throws(()=>validateRecord({...example,itemOptions:{shirt:'made-up'}}));
 });
 test('legacy backups preserve original points but learning uses current scale',()=>{
  const legacy=validateRecord({...example,score:8,updatedAt:'2026-10-28T00:00:00Z'},{importing:true});assert.equal(legacy.score,8);assert.equal(legacy.scoreVersion,1);
  const modern=validateRecord(example);const p={cold:0,heat:0};assert.equal(correction(p,[legacy]),correction(p,[modern]));
  const imported=validateRecord(modern,{importing:true});assert.equal(imported.score,modern.score);assert.deepEqual(imported.itemOptions,modern.itemOptions);
+});
+test('v2 records stay importable and learning recalculates them with their saved variants',()=>{
+ const v2={...example,items:['long','trench'],itemOptions:{long:'warm'},score:5.2,scoreVersion:2,updatedAt:'2026-10-28T00:00:00Z'};
+ const imported=validateRecord(v2,{importing:true});
+ assert.equal(imported.scoreVersion,2);assert.equal(imported.score,5.2);assert.equal(imported.itemOptions.long,'warm');
+ assert.equal(outfit(['long','trench'],{long:'warm'}).score,6.6);
+ const p={cold:0,heat:0};
+ assert.equal(correction(p,[imported],8),correction(p,[{...imported,score:6.6,scoreVersion:SCORE_VERSION}],8));
+ assert.throws(()=>validateRecord({...example,scoreVersion:99},{importing:true}),/버전/);
 });
