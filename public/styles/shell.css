@@ -185,3 +185,15 @@
   .site-header .subnav nav a[aria-current=page] { box-shadow: none; background: var(--surface-2); }
   .app-switch button { padding: 6px 11px; letter-spacing: .04em; }
 }
+.install-fab-wrap { display: none; }
+@media (max-width: 700px) {
+  .home-intro .install-chip, .home-intro .install-tip { display: none; }
+  .install-fab-wrap:not([hidden]) { position: fixed; z-index: 35; right: 16px; bottom: calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+  .install-fab { display: grid; place-items: center; width: 56px; height: 56px; padding: 0; border: 0; border-radius: 50%; background: var(--ink); color: #fff; box-shadow: 0 8px 24px rgb(0 0 0 / .24); }
+  .install-fab:active { transform: scale(.94); }
+  .install-bubble:not([hidden]) { display: block; max-width: min(280px, calc(100vw - 32px)); margin: 0; padding: 12px 14px; border-radius: 16px 16px 4px 16px; background: var(--ink); color: #fff; font-size: 13px; line-height: 1.5; box-shadow: 0 8px 24px rgb(0 0 0 / .2); animation: fade-in .2s ease; }
+  body.menu-open .install-fab-wrap { display: none; }
+}
+@media (max-width: 700px) {
+  body:has(.install-fab-wrap:not([hidden])) #home-app { padding-bottom: 88px; }
+}

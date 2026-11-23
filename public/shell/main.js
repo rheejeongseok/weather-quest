@@ -29,6 +29,7 @@ function installGuide(){
  return '브라우저 메뉴(⋮) → ‘앱 설치’ 또는 ‘홈 화면에 추가’를 눌러 주세요.';
 }
 function paintMenuInstall(){
+ const fab=document.querySelector('#install-fab-wrap');if(fab){fab.hidden=isStandalone()||currentApp!=='home';if(fab.hidden||installPrompt)document.querySelector('#install-bubble').hidden=true;}
  const box=document.querySelector('#menu-install');if(!box)return;
  box.hidden=isStandalone();
  document.querySelector('#menu-install-btn').textContent=installPrompt?'설치':'방법 보기';
@@ -66,6 +67,7 @@ function showApp(name){
  currentApp=['cloth','subway'].includes(name)?name:'home';
  homeRoot.hidden=currentApp!=='home';app.hidden=currentApp!=='cloth';subwayRoot.hidden=currentApp!=='subway';
  if(currentApp==='home')renderHome();
+ paintMenuInstall();
  document.querySelectorAll('[data-app]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.app===currentApp)));
  document.querySelector('#subway-nav').hidden=currentApp!=='subway';markCloth();
  document.querySelector('#header-section').textContent={home:'',cloth:'Cloth to You',subway:'지하철'}[currentApp];
@@ -81,11 +83,12 @@ menuToggle.onclick=()=>setMenu(menu.hidden);
 menuBackdrop.onclick=()=>setMenu(false);
 menu.querySelectorAll('[data-menu-close],[data-menu-link]').forEach(b=>b.addEventListener('click',()=>setMenu(false)));
 menu.querySelectorAll('[data-menu-app]').forEach(b=>b.onclick=()=>{setMenu(false);showApp(b.dataset.menuApp);});
-document.querySelector('#menu-install-btn').onclick=async()=>{
- const tip=document.querySelector('#menu-install-tip');
- if(installPrompt){const p=installPrompt;p.prompt();const r=await p.userChoice.catch(()=>null);installPrompt=null;if(r?.outcome==='accepted')setMenu(false);paintMenuInstall();if(currentApp==='home')renderHome();return;}
- tip.textContent=installGuide();tip.hidden=!tip.hidden;
-};
+// 설치 창을 띄울 수 있으면 띄우고 true, 아니면 false(호출한 쪽이 방법 안내를 보여줌)
+async function runInstall(){if(!installPrompt)return false;const p=installPrompt;p.prompt();const r=await p.userChoice.catch(()=>null);installPrompt=null;if(r?.outcome==='accepted')setMenu(false);paintMenuInstall();if(currentApp==='home')renderHome();return true;}
+function toggleTip(tip){tip.textContent=installGuide();tip.hidden=!tip.hidden;}
+document.querySelector('#menu-install-btn').onclick=async()=>{if(!await runInstall())toggleTip(document.querySelector('#menu-install-tip'));};
+document.querySelector('#install-fab').onclick=async()=>{if(!await runInstall())toggleTip(document.querySelector('#install-bubble'));};
+document.addEventListener('click',e=>{const b=document.querySelector('#install-bubble');if(b&&!b.hidden&&!e.target.closest('#install-fab-wrap'))b.hidden=true;});
 paintMenuInstall();
 document.querySelector('#menu-switch').onclick=()=>{setMenu(false);document.querySelector('#switch').click();};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu.hidden)setMenu(false);});
