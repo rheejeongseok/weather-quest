@@ -1,6 +1,6 @@
 // My Doc 서비스 워커: 화면 파일은 네트워크 우선(실패하면 저장본), API는 항상 네트워크.
 // 코드가 바뀌어도 다음 접속에서 바로 새 파일을 받고, 오프라인일 때만 저장본을 씁니다.
-const CACHE = 'mydoc-v2';
+const CACHE = 'mydoc-v3';
 const SHELL = ['/', '/styles/base.css', '/styles/shell.css', '/styles/cloth.css', '/styles/subway.css', '/shell/main.js', '/shell/util.js', '/cloth/cloth-view.js', '/cloth/lib.mjs', '/cloth/comfort-model.mjs', '/cloth/forecast.mjs', '/subway/subway-view.js', '/subway/subway.mjs', '/subway/subway-data.json', '/favicon.svg', '/icon-192.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', event => {

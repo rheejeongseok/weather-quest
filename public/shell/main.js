@@ -12,13 +12,27 @@ const subwayRoot=document.querySelector('#subway-app');
 function markSubwayNav(){const t=getSubwayTab();document.querySelectorAll('#subway-nav [data-subway-view]').forEach(a=>{if(a.dataset.subwayView===t)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});}
 const homeRoot=document.querySelector('#home-app');
 let installPrompt=null;
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;if(currentApp==='home')renderHome();});
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;paintMenuInstall();if(currentApp==='home')renderHome();});
+window.addEventListener('appinstalled',()=>{installPrompt=null;paintMenuInstall();if(currentApp==='home')renderHome();});
 const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
 function installHint(){
  if(isStandalone())return '';
  if(installPrompt)return '<button type="button" class="install-chip" data-install>홈 화면에 추가</button>';
  if(/iphone|ipad|ipod/i.test(navigator.userAgent))return '<p class="install-tip">Safari 공유 버튼 → ‘홈 화면에 추가’로 앱처럼 쓸 수 있어요</p>';
  return '';
+}
+// 햄버거 메뉴의 '앱으로 설치': 설치 창을 띄울 수 있으면 바로 설치, 아니면 기기별 방법을 안내합니다.
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+function installGuide(){
+ if(isIOS())return /crios|fxios|edgios/i.test(navigator.userAgent)?'Safari에서 이 주소를 연 뒤, 아래 공유 버튼(□↑) → ‘홈 화면에 추가’를 눌러 주세요.':'아래 공유 버튼(□↑) → ‘홈 화면에 추가’를 눌러 주세요.';
+ if(/samsungbrowser/i.test(navigator.userAgent))return '아래 메뉴(≡) → ‘현재 페이지 추가’ → ‘홈 화면’을 눌러 주세요.';
+ return '브라우저 메뉴(⋮) → ‘앱 설치’ 또는 ‘홈 화면에 추가’를 눌러 주세요.';
+}
+function paintMenuInstall(){
+ const box=document.querySelector('#menu-install');if(!box)return;
+ box.hidden=isStandalone();
+ document.querySelector('#menu-install-btn').textContent=installPrompt?'설치':'방법 보기';
+ if(installPrompt)document.querySelector('#menu-install-tip').hidden=true;
 }
 function renderHome(){
  const profile=getProfile(),now=new Date(),date=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'}).formatToParts(now).reduce((o,p)=>(o[p.type]=p.value,o),{});
@@ -67,6 +81,12 @@ menuToggle.onclick=()=>setMenu(menu.hidden);
 menuBackdrop.onclick=()=>setMenu(false);
 menu.querySelectorAll('[data-menu-close],[data-menu-link]').forEach(b=>b.addEventListener('click',()=>setMenu(false)));
 menu.querySelectorAll('[data-menu-app]').forEach(b=>b.onclick=()=>{setMenu(false);showApp(b.dataset.menuApp);});
+document.querySelector('#menu-install-btn').onclick=async()=>{
+ const tip=document.querySelector('#menu-install-tip');
+ if(installPrompt){const p=installPrompt;p.prompt();const r=await p.userChoice.catch(()=>null);installPrompt=null;if(r?.outcome==='accepted')setMenu(false);paintMenuInstall();if(currentApp==='home')renderHome();return;}
+ tip.textContent=installGuide();tip.hidden=!tip.hidden;
+};
+paintMenuInstall();
 document.querySelector('#menu-switch').onclick=()=>{setMenu(false);document.querySelector('#switch').click();};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu.hidden)setMenu(false);});
 document.querySelector('.brand').onclick=e=>{e.preventDefault();showApp('home');};
