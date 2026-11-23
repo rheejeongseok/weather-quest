@@ -100,7 +100,7 @@ export async function positions(line,{key=process.env.SEOUL_SUBWAY_KEY,fetcher=f
 // 타는 역 시간표에서 지금(또는 고른 시각) 이후 열차를 고르고, 내리는 역 시간표에서 같은 열차번호의 도착 시각을 찾습니다.
 // 내리는 역 시간표가 없으면 행선지가 내리는 역 너머인지 확인하고 표준 운행시간으로 도착을 추정합니다.
 let subwayData=null;
-const loadSubwayData=()=>subwayData??=JSON.parse(readFileSync(new URL('./public/subway-data.json',import.meta.url),'utf8'));
+const loadSubwayData=()=>subwayData??=JSON.parse(readFileSync(new URL('../../public/subway/subway-data.json',import.meta.url),'utf8'));
 const canonical=(data,name)=>stationName(data,normalizeName(name))||normalizeName(name);
 
 // 같은 노선에서 stations 방향으로 계속 가면 dest에 닿는지, 그리고 그 사이에 alight가 있는지

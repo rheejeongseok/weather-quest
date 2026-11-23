@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {dailyRecords} from '../record.mjs';
-import {threeHourly,dayRange,sky} from '../forecast.mjs';
+import {dailyRecords} from '../../apps/cloth/record.mjs';
+import {threeHourly,dayRange,sky} from '../../apps/cloth/forecast.mjs';
 test('legacy duplicate dates display the latest entry and canonical updates take precedence',()=>{
  const a={id:'old-a',date:'2026-10-28',rating:-1,updatedAt:'2026-10-28T01:00:00Z'};const b={...a,id:'old-b',rating:0,updatedAt:'2026-10-28T02:00:00Z'};
  assert.deepEqual(dailyRecords([a,b]),[b]);const c={...a,id:'day:2026-10-28',rating:1};assert.deepEqual(dailyRecords([a,b,c]),[c]);

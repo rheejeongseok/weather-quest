@@ -1,4 +1,6 @@
 -- Supabase SQL Editor에서 전체 실행하세요. 기존 데이터는 삭제하지 않습니다.
+-- 구조: wq_profiles(공통 계정: id·닉네임) ← wq_cloth_settings / wq_records(옷차림) / wq_subway_saved(지하철)
+-- wq_profiles.data는 예전 저장 방식이며, 서버가 새 테이블이 비어 있을 때만 읽어 옮깁니다.
 create table if not exists public.wq_profiles (
  id uuid primary key,
  nickname text not null check (char_length(nickname) between 1 and 24),
@@ -13,6 +15,21 @@ create table if not exists public.wq_records (
  created_at timestamptz not null default now(),
  primary key (user_id,id)
 );
+-- 서랍별 데이터: 프로필당 한 줄(profile_id로 연결, 프로필을 지우면 함께 삭제)
+create table if not exists public.wq_cloth_settings (
+ profile_id uuid primary key references public.wq_profiles(id) on delete cascade,
+ data jsonb not null default '{}'::jsonb,
+ updated_at timestamptz not null default now()
+);
+create table if not exists public.wq_subway_saved (
+ profile_id uuid primary key references public.wq_profiles(id) on delete cascade,
+ data jsonb not null default '{}'::jsonb,
+ updated_at timestamptz not null default now()
+);
+alter table public.wq_cloth_settings enable row level security;
+alter table public.wq_subway_saved enable row level security;
+revoke all on public.wq_cloth_settings, public.wq_subway_saved from anon, authenticated;
+grant all on public.wq_cloth_settings, public.wq_subway_saved to service_role;
 alter table public.wq_profiles enable row level security;
 alter table public.wq_records enable row level security;
 revoke all on public.wq_profiles, public.wq_records from anon, authenticated;

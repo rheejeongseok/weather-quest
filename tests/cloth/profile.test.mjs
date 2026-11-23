@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {preferenceSettings,sensitivityPrior,exposureAdjustment,warmthTarget,correction,recommend,comfortNotes,scoreFor,SCORE_VERSION} from '../lib.mjs';
+import {preferenceSettings,sensitivityPrior,exposureAdjustment,warmthTarget,correction,recommend,comfortNotes,scoreFor,SCORE_VERSION} from '../../apps/cloth/lib.mjs';
 test('new preference fields have backward-compatible defaults and reject unknown enum values',()=>{
  const expected={exposure:'medium',commute:'mixed',windSensitivity:'normal',sweat:'normal',coldSpot:'none',swingSensitivity:'normal',inner:'any',outerType:'any',topType:'any'};
  assert.deepEqual(preferenceSettings({}),expected);assert.deepEqual(preferenceSettings({exposure:'invalid',commute:'invalid'}),expected);

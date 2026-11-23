@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {warmthTarget,correction,recommend,outfit,scoreFor,SCORE_VERSION} from '../lib.mjs';
+import {warmthTarget,correction,recommend,outfit,scoreFor,SCORE_VERSION} from '../../apps/cloth/lib.mjs';
 const profile={cold:0,heat:0,activity:'normal'};
 const record=(rating=0)=>({date:'2026-10-28',items:['shirt','light'],score:6,scoreVersion:SCORE_VERSION,rating,context:'outdoor',activity:'normal',weather:{feels:10}});
 test('target is warmer as temperature falls and activity offsets remain separate',()=>{

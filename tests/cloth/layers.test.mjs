@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {selectedClothes,clothes,recommend} from '../lib.mjs';
+import {selectedClothes,clothes,recommend} from '../../apps/cloth/lib.mjs';
 test('actual outfits support layered shirts and light down under a coat',()=>{
  for(const ids of [['tee','shirt','wind'],['long','ziphood','jacket'],['thermal','long','knit','light','coat'],['tee','cardigan','trench']])assert.equal(selectedClothes(ids).length,ids.length);
 });

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {warmthTarget,compareOutfit,recommend,outfit,SCORE_VERSION} from '../lib.mjs';
+import {warmthTarget,compareOutfit,recommend,outfit,SCORE_VERSION} from '../../apps/cloth/lib.mjs';
 const profile={cold:0,heat:0,activity:'normal',exposure:'medium'};
 const record=(index,score,rating=0,extra={})=>({id:`day:2026-10-${index}`,date:`2026-10-${index}`,updatedAt:`2026-10-${index}T08:00:00Z`,items:['shirt','light'],scoreVersion:SCORE_VERSION,score,rating,context:'outdoor',activity:'normal',exposure:'medium',weather:{feels:10,temp:11},...extra});
 test('no usable observations produces a visibly provisional range',()=>{

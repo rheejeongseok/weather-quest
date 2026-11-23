@@ -22,11 +22,14 @@ try{
  if(process.argv.includes('--icons')){
   const svg=await readFile(new URL('public/favicon.svg',root),'utf8');
   await send('Emulation.setDefaultBackgroundColorOverride',{color:{r:0,g:0,b:0,a:0}});
-  for(const size of [32,180]){
-   await send('Emulation.setDeviceMetricsOverride',{width:size,height:size,deviceScaleFactor:1,mobile:false});
-   await evaluate(`document.open();document.write(${JSON.stringify('<!doctype html><html><head><style>html,body{margin:0;padding:0;background:transparent;width:100%;height:100%;overflow:hidden}svg{display:block;width:100%;height:100%}</style></head><body>'+svg+'</body></html>')});document.close();`);
+  const maskable=svg.replace(/<rect width="64" height="64" rx="16"/,'<rect width="64" height="64" rx="0"').replace(/<svg([^>]*)viewBox="0 0 64 64"/,'<svg$1viewBox="-8 -8 80 80" style="background:#2f5d50"');
+  for(const size of [32,180,192,512,'maskable']){const px=size==='maskable'?512:size;const source=size==='maskable'?maskable:svg;
+   await send('Emulation.setDeviceMetricsOverride',{width:px,height:px,deviceScaleFactor:1,mobile:false});
+   await evaluate(`document.open();document.write(${JSON.stringify('<!doctype html><html><head><style>html,body{margin:0;padding:0;background:transparent;width:100%;height:100%;overflow:hidden}svg{display:block;width:100%;height:100%}</style></head><body>'+source+'</body></html>')});document.close();`);
    const capture=await send('Page.captureScreenshot',{format:'png'});const png=Buffer.from(capture.data,'base64');
    if(size===180)await writeFile(new URL('public/apple-touch-icon.png',root),png);
+   else if(size===192||size===512)await writeFile(new URL(`public/icon-${size}.png`,root),png);
+   else if(size==='maskable')await writeFile(new URL('public/icon-maskable.png',root),png);
    else{const header=Buffer.alloc(22);header.writeUInt16LE(1,2);header.writeUInt16LE(1,4);header[6]=32;header[7]=32;header.writeUInt16LE(1,10);header.writeUInt16LE(32,12);header.writeUInt32LE(png.length,14);header.writeUInt32LE(22,18);await writeFile(new URL('public/favicon.ico',root),Buffer.concat([header,png]));}
   }
   await send('Emulation.setDefaultBackgroundColorOverride',{});
@@ -182,15 +185,31 @@ try{
  await evaluate("document.querySelector('[data-m-mode=search]').click()");await pause(200);
  assert.equal(await evaluate('getComputedStyle(document.querySelector(\"#subway-map-wrap\")).display'),'none');await screenshot('mobile-subway-search');
  await evaluate("document.querySelector('[data-m-mode=map]').click()");
+ // 경유를 켜면 지도에서 누르는 순서가 출발 → 경유 → 도착
+ await evaluate("document.querySelector('[data-reset]').click()");await evaluate("document.querySelector('[data-add-via]').click()");await pause(500);
+ assert.equal(await evaluate('document.querySelector(".pick-via").hidden'),false);
+ const three=await evaluate(`(()=>{const out=[];for(const g of document.querySelectorAll('.map-station.transfer')){const r=g.querySelector('circle:not(.hit)').getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height/2;const hit=document.elementFromPoint(x,y);if(hit&&hit.closest('.map-station')===g&&!out.some(o=>Math.hypot(o.x-x,o.y-y)<40))out.push({name:g.dataset.station,x,y});if(out.length===3)break;}return out;})()`);
+ assert.equal(three.length,3,'three tappable stations');
+ for(const p of three){await send('Input.dispatchMouseEvent',{type:'mousePressed',x:p.x,y:p.y,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:p.x,y:p.y,button:'left',clickCount:1});await pause(200);}
+ await waitFor(()=>evaluate(`['from','via','to'].map(r=>document.querySelector('#subway-form [name='+r+']').value).join('|')===${JSON.stringify(three.map(p=>p.name).join('|'))}`));
+ await evaluate("document.querySelector('[data-sheet-toggle]').click()");await pause(200);await screenshot('mobile-subway-via');
  await evaluate(`document.querySelector('#subway-nav [data-subway-view="live"]').click()`);await waitFor(()=>evaluate('!!document.querySelector(".live-strip, .subway-live-empty, #live-body .error")'));
  assert.ok(await evaluate('document.documentElement.scrollWidth<=window.innerWidth'),'horizontal overflow in live tab');
  if(await evaluate('!!document.querySelector(".live-train")')){await evaluate(`document.querySelector('.live-train').click()`);await waitFor(()=>evaluate('!!document.querySelector(".live-detail dl")'));}
  await screenshot('mobile-subway-train');
- await evaluate("document.querySelector('.live-stop[data-stop]').click()");await waitFor(()=>evaluate('!!document.querySelector(".live-detail .detail-block")'));await pause(1500);await screenshot('mobile-subway-station');
- await evaluate("document.querySelector('[data-detail-close]').click()");await screenshot('mobile-subway-live');
- assert.equal(await evaluate('getComputedStyle(document.querySelector(".live-lines")).display'),'none','mobile hides line chips');await evaluate("document.querySelector('.line-fab').click()");assert.equal(await evaluate('document.querySelector("#line-sheet").hidden'),false);await screenshot('mobile-subway-fab');await evaluate("document.querySelector('#line-sheet [data-live-line=\"2\"]').click()");await waitFor(()=>evaluate('document.querySelector(".line-fab b").textContent==="2"'));await waitFor(()=>evaluate('!!document.querySelector(".live-strip, .subway-live-empty")'));
+ if(await evaluate("!!document.querySelector('.live-stop[data-stop]')")){await evaluate("document.querySelector('.live-stop[data-stop]').click()");await waitFor(()=>evaluate('!!document.querySelector(".live-detail .detail-block")'));await pause(1500);await screenshot('mobile-subway-station');  await evaluate("document.querySelector('[data-detail-close]').click()");await screenshot('mobile-subway-live');}
+ assert.equal(await evaluate('getComputedStyle(document.querySelector(".live-lines")).display'),'none','mobile hides line chips');await evaluate("document.querySelector('.line-fab').click()");assert.equal(await evaluate('document.querySelector("#line-sheet").hidden'),false);assert.notEqual(await evaluate('getComputedStyle(document.querySelector(".line-fab")).backgroundColor'),'rgb(0, 0, 0)','open line button stays light');await screenshot('mobile-subway-fab');await evaluate("document.querySelector('#line-sheet [data-live-line=\"2\"]').click()");await waitFor(()=>evaluate('document.querySelector(".line-fab b").textContent==="2"'));await waitFor(()=>evaluate('!!document.querySelector(".live-strip, .subway-live-empty")'));
  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});await pause(300);await screenshot('desktop-subway-live');
  await evaluate(`document.querySelector('#subway-nav [data-subway-view="route"]').click()`);
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await pause(200);
+ assert.equal(await evaluate('getComputedStyle(document.querySelector(\"#menu-toggle\")).display'),'grid','hamburger on mobile');
+ await evaluate("document.querySelector('#menu-toggle').click()");assert.equal(await evaluate('document.querySelector(\"#mobile-menu\").hidden'),false);await pause(300);
+ assert.match(await evaluate('document.querySelector(\"#menu-nickname\").textContent'),/브라우저테스트/);await screenshot('mobile-menu');
+ await evaluate("document.querySelector('[data-menu-app=cloth]').click()");assert.equal(await evaluate('document.querySelector(\"#mobile-menu\").hidden'),true);assert.equal(await evaluate('document.querySelector(\"#app\").hidden'),false);
+ await evaluate("document.querySelector('.brand').click()");await waitFor(()=>evaluate('document.querySelectorAll(\".brief-card\").length===3'));await waitFor(()=>evaluate('!/찾고 있어요/.test(document.querySelector(\"#brief-plan\")?.textContent||\"x\")'));await pause(300);
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await pause(300);await evaluate('window.scrollTo(0,document.querySelector(".home-section").offsetTop-70)');await screenshot('mobile-home-brief');
+ await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});await pause(300);await evaluate('window.scrollTo(0,0)');await screenshot('desktop-home-brief');
+ const chipStyle=await evaluate('(()=>{const c=document.querySelector(".drawer-recent .chip");if(!c)return null;const st=getComputedStyle(c);return st.backgroundColor+"|"+st.color+"|"+c.textContent.trim();})()');console.log('home chip',chipStyle);assert.ok(chipStyle&&!chipStyle.startsWith('rgb(17, 17, 17)'),'home route chip is light');await evaluate('document.querySelector(".drawer-recent").scrollIntoView({block:"center",behavior:"instant"})');await screenshot('desktop-home-chips');
  assert.deepEqual(errors,[]);
  console.log('Browser PASS: login, reset/clear recommendation, settings, custom layering, variants, daily update without duplicates, edit preload, deletion, style preferences, main tabs, 3-hour forecast, day-specific drafts; responsive widths 390 / 768 / 1440. Screenshots in .qa/');
 }finally{if(ws?.readyState===1)ws.close();browser.kill();local.kill();}

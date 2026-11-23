@@ -1,5 +1,5 @@
 // 지하철 탭: 실제 역 위치로 그린 노선도에서 역을 골라 출발·경유·도착을 정하고, 경로와 출발역의 다음 열차를 보여줍니다.
-import {findRouteVia,searchStations,stationName,placeTrains,approaching,laneName,travelMinutes} from '/subway.mjs';
+import {findRouteVia,searchStations,stationName,placeTrains,approaching,laneName,travelMinutes} from '/subway/subway.mjs';
 
 const STORE_KEY='cty-subway';
 const ROLES={from:'출발',via:'경유',to:'도착'};
@@ -43,7 +43,7 @@ const destText=d=>esc(d)+(/순환$/.test(d||'')?'':'행');
 
 async function loadData(){
  if(data)return data;
- loading??=fetch('/subway-data.json').then(r=>{if(!r.ok)throw Error('지하철 데이터를 불러오지 못했어요.');return r.json();})
+ loading??=fetch('/subway/subway-data.json').then(r=>{if(!r.ok)throw Error('지하철 데이터를 불러오지 못했어요.');return r.json();})
   .then(d=>{data=d;return d;}).catch(e=>{loadError=e.message;loading=null;throw e;});
  return loading;
 }
@@ -162,7 +162,7 @@ function paintRouteOverlay(){
 }
 
 let popStation=null,pickRole=null,showVia=false,sheetOpen=true;
-const nextPickRole=()=>!state.from?'from':!state.to?'to':null;
+const nextPickRole=()=>!state.from?'from':showVia&&!state.via?'via':!state.to?'to':null;
 function paintPickHint(){const hint=document.querySelector('#map-hint');if(!hint)return;hint.hidden=!pickRole;if(pickRole)hint.innerHTML=`<span class="hint-dot hint-${pickRole}"></span>지도에서 <b>${ROLES[pickRole]}역</b>을 눌러 주세요<button type="button" class="hint-close" aria-label="지도에서 고르기 그만">×</button>`;hint.querySelector('.hint-close')?.addEventListener('click',()=>{pickRole=null;paintPickHint();document.querySelectorAll('.pick').forEach(p=>p.classList.remove('picking'));});}
 function openPop(name){
  popStation=name;const pop=document.querySelector('#station-pop');if(!pop)return;
@@ -204,14 +204,14 @@ function compute(){
  }
 }
 
-function refreshAll(){if(pickRole&&state[pickRole])pickRole=pickRole==='via'?null:nextPickRole();const before=JSON.stringify(state.result?.legs?.map(l=>l.stations));compute();if(state.result&&JSON.stringify(state.result.legs.map(l=>l.stations))!==before)sheetOpen=true;save();paintPanel();const wrap=document.querySelector('#subway-map-wrap');if(state.result&&JSON.stringify(state.result.legs.map(l=>l.stations))!==before)wrap?._fitRoute?.();wrap?._apply?.();paintPickHint();}
+function refreshAll(){if(pickRole&&state[pickRole])pickRole=nextPickRole();const before=JSON.stringify(state.result?.legs?.map(l=>l.stations));compute();if(state.result&&JSON.stringify(state.result.legs.map(l=>l.stations))!==before)sheetOpen=true;save();paintPanel();const wrap=document.querySelector('#subway-map-wrap');if(state.result&&JSON.stringify(state.result.legs.map(l=>l.stations))!==before)wrap?._fitRoute?.();wrap?._apply?.();paintPickHint();}
 
 function paintPanel(){
  const panel=document.querySelector('#subway-panel');if(!panel)return;
  const options=Object.entries(data.stations).map(([name,lines])=>`<option value="${esc(name)}">${lines.map(l=>data.lines[l].name).join('·')}</option>`).join('');
  const field=(role,placeholder,required)=>`<label class="pick pick-${role}${pickRole===role?' picking':''}"${role==='via'&&!state.via&&!showVia&&pickRole!=='via'?' hidden':''}><button type="button" class="pick-role" data-pick-role="${role}" aria-pressed="${pickRole===role}" title="지도에서 ${ROLES[role]}역 고르기">${ROLES[role]}</button><input name="${role}" list="subway-stations" value="${esc(state[role])}" placeholder="${placeholder}" ${required?'required':''}>${state[role]?`<button type="button" class="pick-clear" data-clear="${role}" aria-label="${ROLES[role]} 지우기">×</button>`:''}</label>`;
  panel.innerHTML=`<form id="subway-form" class="subway-form" autocomplete="off">
-  <div class="subway-picks"><div class="pick-fields">${field('from','출발역 (지도에서 누르거나 입력)',true)}${field('via','경유역',false)}${field('to','도착역 (지도에서 누르거나 입력)',true)}${!state.via&&!showVia&&pickRole!=='via'?'<button type="button" class="add-via" data-add-via>+ 경유역 추가</button>':''}</div><button type="button" class="secondary subway-swap" aria-label="출발역과 도착역 바꾸기">⇅</button></div>
+  <div class="subway-picks"><div class="pick-fields">${field('from','출발역',true)}${field('via','경유역',false)}${field('to','도착역',true)}${!state.via&&!showVia&&pickRole!=='via'?'<button type="button" class="add-via" data-add-via>+ 경유역 추가</button>':''}</div><button type="button" class="secondary subway-swap" aria-label="출발역과 도착역 바꾸기">⇅</button></div>
   <div class="subway-actions"><button type="submit">경로 찾기</button><button type="button" class="secondary" data-reset>초기화</button></div></form><datalist id="subway-stations">${options}</datalist>
   ${!state.result&&state.from?'<div id="subway-departures" class="subway-departures"></div>':''}
   ${state.error?`<p class="error subway-error">${esc(state.error)}</p>`:''}
@@ -219,9 +219,9 @@ function paintPanel(){
  panel.classList.toggle('has-result',!!state.result);
  const form=panel.querySelector('#subway-form');
  form.onsubmit=e=>{e.preventDefault();const f=new FormData(form);for(const r of Object.keys(ROLES)){const v=String(f.get(r)||'').trim();state[r]=v?stationName(data,v)||v:'';}refreshAll();};
- form.querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{state[b.dataset.clear]='';refreshAll();});
+ form.querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{if(b.dataset.clear==='via'){showVia=false;if(pickRole==='via')pickRole=nextPickRole();}state[b.dataset.clear]='';refreshAll();});
  form.querySelectorAll('[data-pick-role]').forEach(b=>b.onclick=e=>{e.preventDefault();pickRole=pickRole===b.dataset.pickRole?null:b.dataset.pickRole;closePop();form.querySelectorAll('.pick').forEach(p=>p.classList.toggle('picking',p.classList.contains('pick-'+pickRole)));form.querySelectorAll('[data-pick-role]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.pickRole===pickRole)));paintPickHint();});
- form.querySelector('[data-add-via]')?.addEventListener('click',()=>{showVia=true;pickRole='via';paintPanel();paintPickHint();});
+ form.querySelector('[data-add-via]')?.addEventListener('click',()=>{showVia=true;pickRole=nextPickRole()||'via';paintPanel();paintPickHint();});
  form.querySelector('[data-reset]').onclick=()=>{Object.assign(state,{from:'',via:'',to:'',result:null,error:'',timeMode:'now',time:''});showVia=false;pickRole='from';refreshAll();paintPickHint();document.querySelector('#subway-map-wrap')?._fitAll?.();};
  panel.querySelectorAll('[data-sheet-toggle]').forEach(b=>b.onclick=()=>{sheetOpen=!sheetOpen;panel.querySelector('.route-sheet')?.classList.toggle('open',sheetOpen);panel.querySelectorAll('[data-sheet-toggle]').forEach(x=>x.setAttribute('aria-expanded',String(sheetOpen)));});
  panel.querySelectorAll('input[name=when]').forEach(i=>i.onchange=()=>{state.timeMode=i.value;const t=panel.querySelector('input[name=time]');t.hidden=i.value!=='set';if(i.value==='set'){state.time=t.value||nowHM();t.focus();}paintPlan();});
@@ -456,4 +456,25 @@ function trainCard(id,placed,from){
 function trainList(id,placed,from){
  const all=placed.segs.flatMap((list,k)=>list.map(t=>({t,k}))).sort((a,b)=>a.t.d-b.t.d||a.k-b.k||a.t.p-b.t.p);
  return `<div class="live-list" role="table" aria-label="열차 목록"><div class="live-list-row head" role="row"><span>열차</span><span>행선지</span><span>현재 위치</span><span>방향</span></div>${all.map(({t})=>{const info=trainInfo(id,placed,t,from);return `<button type="button" class="live-list-row${live.selected===t.no?' selected':''}" role="row" data-train="${esc(t.no)}"><span><b>${esc(t.no)}</b>${t.express?' <em>급행</em>':''}${t.last?' <em>막차</em>':''}</span><span>${destText(t.destName||t.destination)}</span><span>${statusChip(t.status)}${esc(stationName(data,t.station)||t.station)}</span><span>${esc(info.lane)}${info.toFrom&&info.toFrom.dist<40?` · <small>${esc(from)}까지 ${info.toFrom.dist<.15?'곧':'약 '+Math.max(1,Math.round(info.toFrom.minutes))+'분'}</small>`:''}</span></button>`;}).join('')}</div>`;
+}
+
+// ---------- 홈 브리핑 카드: 즐겨찾기 첫 경로(없으면 최근 경로)의 지금 탈 열차 ----------
+const briefPlanCache=new Map();
+export function briefSubwayCard(){
+ const r=recentRoutes()[0],label='<span class="brief-label">지하철</span>';
+ if(!r)return `${label}<p class="brief-empty">자주 가는 경로를 ☆ 즐겨찾기 하면, 여기서 지금 탈 열차를 바로 보여줘요.</p><button type="button" class="arrow-button secondary" data-open="subway" data-tab="route">경로 찾기 <span aria-hidden="true">→</span></button>`;
+ return `${label}<p class="brief-route">${r.fav?'★ ':''}${esc(r.from)}${r.via?' → '+esc(r.via):''} → ${esc(r.to)}</p><div id="brief-plan"><p class="fine">시간표에서 탈 열차를 찾고 있어요…</p></div><button type="button" class="arrow-button secondary" data-home-route="0">경로 자세히 <span aria-hidden="true">→</span></button>`;
+}
+export async function paintBriefSubway(){
+ const r=recentRoutes()[0];if(!r||!document.querySelector('#brief-plan'))return;
+ const minute=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date());
+ const key=`${r.from}|${r.via||''}|${r.to}|${minute}`;let p=briefPlanCache.get(key);
+ if(!p){try{const res=await fetch('/api/subway/plan?'+new URLSearchParams({from:r.from,via:r.via||'',to:r.to}));p=await res.json();if(!res.ok)throw Error(p.error||'시간표를 불러오지 못했어요.');briefPlanCache.clear();briefPlanCache.set(key,p);}catch(e){p={error:e.message};}}
+ const el=document.querySelector('#brief-plan');if(!el)return;
+ if(p.error){el.innerHTML=`<p class="fine">${esc(p.error)}</p>`;return;}
+ if(p.needsKey){el.innerHTML='<p class="fine">시간표 인증키를 연결하면 탈 열차가 보여요.</p>';return;}
+ const first=p.legs[0],dest=d=>esc(d)+(/순환$/.test(d||'')?'':'행');
+ el.innerHTML=`<div class="brief-main"><strong>${esc(first.depart)}<small>출발</small></strong><span>${esc(p.arrive)} 도착 · 총 ${p.minutes}분</span></div>
+  <p class="brief-sub">${first.wait>0?`${first.wait}분 뒤 `:'지금 '}${esc(first.from)}에서 <span class="line-badge" style="--line-color:${esc(first.color)}">${esc(first.name)}</span> ${first.train?dest(first.train.destination):''}</p>
+  ${p.legs.length>1?`<p class="brief-legs">${p.legs.map(l=>`<span class="line-badge" style="--line-color:${esc(l.color)}">${esc(l.name)}</span>`).join('<i>→</i>')}<small>환승 ${p.legs.length-1}회</small></p>`:''}`;
 }

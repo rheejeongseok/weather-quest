@@ -1,1 +1,1 @@
-{"name":"my-doc","version":"0.1.0","private":true,"type":"module","scripts":{"start":"node server.mjs","build":"node scripts/build.mjs","test":"node --test tests/*.test.mjs","build:subway":"node scripts/build-subway.mjs"},"engines":{"node":"24.x"}}
+{"name":"my-doc","version":"0.1.0","private":true,"type":"module","scripts":{"start":"node server.mjs","build":"node scripts/build.mjs","test":"node --test \"tests/**/*.test.mjs\"","build:subway":"node apps/subway/build-data.mjs"},"engines":{"node":"24.x"}}

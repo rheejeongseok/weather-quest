@@ -17,14 +17,15 @@
 
 | 파일 | 역할 |
 | --- | --- |
-| `data-src/subway/*.csv` | 내려받은 공공데이터 원본(UTF-8로 변환) |
-| `scripts/build-subway.mjs` | 원본을 노선·구간·환승 데이터로 조립 (`npm run build:subway`) |
-| `public/subway-data.json` | 조립 결과. 화면이 처음 지하철 탭을 열 때 불러옴 |
-| `subway.mjs` | 역 이름 정리, 역 검색, 다익스트라 경로 계산 (브라우저·테스트 공용) |
-| `public/subway-view.js` | 지하철 탭 화면(노선도, 출발·경유·도착 선택, 경로, 다음 열차, 실시간 위치 자리) |
-| `subway-api.mjs` | 서버: 서울시 시간표로 출발역의 다음 열차 계산 (`/api/subway/departures?station=`), 실시간 열차 위치 (`/api/subway/positions?line=`) |
+| `apps/subway/data-src/*.csv` | 내려받은 공공데이터 원본(UTF-8로 변환) |
+| `apps/subway/build-data.mjs` | 원본을 노선·구간·환승 데이터와 혼잡도로 조립 (`npm run build:subway`) |
+| `public/subway/subway-data.json` | 조립 결과. 화면이 처음 지하철 탭을 열 때 불러옴(서버도 경로 계산에 사용) |
+| `apps/subway/subway.mjs` | 역 이름 정리, 역 검색, 다익스트라 경로 계산 (브라우저·테스트 공용) |
+| `public/subway/subway-view.js` | 지하철 화면(노선도, 출발·경유·도착, 결과 시트·탈 열차, 실시간 위치·역 정보, 홈 브리핑 카드) |
+| `apps/subway/routes.mjs` | 지하철 API 경로(`/api/subway/*`) |
+| `apps/subway/subway-api.mjs` | 서버: 서울시 시간표로 출발역의 다음 열차 계산 (`/api/subway/departures?station=`), 실시간 열차 위치 (`/api/subway/positions?line=`) |
 
-원본 데이터를 새로 받으면 `data-src/subway/`의 파일을 바꾸고 `npm run build:subway`를 실행합니다.
+원본 데이터를 새로 받으면 `apps/subway/data-src/`의 파일을 바꾸고 `npm run build:subway`를 실행합니다.
 
 ## 원본 자료
 
@@ -82,7 +83,7 @@
 
 ## 평소 혼잡도 (파일 자료)
 
-`data-src/subway/seoulmetro-congestion.csv`(서울교통공사 지하철혼잡도정보, 공공데이터포털 15071311, 2026년 9월 기준)를 `npm run build:subway`로 `subway-congestion.json`(서버 전용)으로 만듭니다.
+`apps/subway/data-src/seoulmetro-congestion.csv`(서울교통공사 지하철혼잡도정보, 공공데이터포털 15071311, 2026년 9월 기준)를 `npm run build:subway`로 `apps/subway/subway-congestion.json`(서버 전용)으로 만듭니다.
 
 - 1~8호선 서울교통공사 역, 평일·토요일·일요일, 상선(내선)·하선(외선), 05:30~00:30 30분 단위 평균. 값은 정원(좌석+입석) 대비 %입니다.
 - 단계: 35% 미만 여유(약 34%면 좌석이 다 찬 정도), 80% 미만 보통, 130% 미만 붐빔, 그 이상 매우 붐빔.

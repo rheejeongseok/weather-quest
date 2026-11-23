@@ -7,6 +7,12 @@
 | Cloth to You | 날씨 · 옷 조합 · 착용 기록 · 기록 관리 · 설정 (닉네임 프로필 필요) |
 | 지하철 | 경로 탐색(노선도, 출발·경유·도착, 탈 열차, 평소 혼잡도) · 실시간 위치(열차 정보, 역 실시간 도착) (프로필 없이 바로) |
 
+## 홈: 오늘 브리핑 · 홈 화면 앱
+
+- 홈 상단 **오늘 브리핑**: 날씨(지금 기온·체감·최저/최고)와 우산 안내(오늘 남은 시간 강수확률 60% 이상 꼭, 30% 이상 작은 우산), 프로필의 외출 시각 기준 옷차림 추천(보온 범위와 추천 옷), 즐겨찾기 첫 경로(없으면 최근 경로)의 지금 탈 열차와 도착 예정 시각.
+- **홈 화면 앱(PWA)**: public/manifest.webmanifest, public/sw.js, icon-192·512·maskable. 서비스 워커는 https에서만 등록하며 화면 파일은 네트워크 우선(오프라인이면 저장본), API는 저장하지 않습니다. 아이콘은 node scripts/browser-check.mjs --icons 로 favicon.svg에서 다시 만듭니다.
+- 서랍: Cloth to You, 지하철, Nihongo Quest(별도 사이트 https://nihongo-quest-blush.vercel.app/ 로 연결).
+
 ## Cloth to You
 
 > 이전 이름: 웨더 퀘스트(Weather Quest), Cloth to You. 아래 서비스·GitHub 주소는 저장소와 Vercel 프로젝트 이름을 바꾸기 전까지 기존 주소를 사용합니다. DB 테이블(`wq_*`)과 브라우저 저장 키(`wq-nickname`)는 기존 데이터를 유지하기 위해 그대로 둡니다.
@@ -161,22 +167,45 @@ Windows에 Chrome이 설치되어 있으면 실제 브라우저 검증도 실행
 node scripts/browser-check.mjs
 ```
 
-390·768·1440px에서 화면 넘침, 탭, 상세 설정, 초기화, 조합·피드백 저장, 수정·삭제를 확인합니다. 별도 임시 DB를 사용하고 캡처는 Git에서 제외된 `.qa/`에 저장합니다. `--icons` 옵션은 SVG에서 ICO와 아이폰용 PNG를 다시 렌더링합니다.
+390·768·1440px에서 화면 넘침, 탭, 상세 설정, 초기화, 조합·피드백 저장, 수정·삭제를 확인합니다. 별도 임시 DB를 사용하고 캡처는 Git에서 제외된 `.qa/`에 저장합니다. `--icons` 옵션은 SVG에서 ICO·아이폰용·홈 화면 앱용 PNG를 다시 렌더링합니다.
 
-## 주요 파일
+## 폴더 구조
+
+서랍(앱)마다 서버 코드·API·화면·스타일을 나눠 두고, My Doc 공통 부분은 `core/`와 `public/shell/`에 둡니다.
 
 | 경로 | 역할 |
 | --- | --- |
-| `public/main.js` | 화면·탭·옷 조합·피드백 흐름 |
-| `public/app.css` | 반응형 레이아웃과 컨트롤 스타일(단일 파일) |
-| `lib.mjs` | 옷 분류·점수·개인화·추천 |
-| `forecast.mjs` | 3시간 예보·일별 기온·날씨 분류 |
-| `record.mjs` | 기록 검증·날짜별 중복 처리 |
-| `observed.mjs` | 지난 기록의 관측 기반 날씨 보정 |
-| `store.mjs` | Supabase·로컬 SQLite 저장소 |
-| `handler.mjs`, `api/handler.mjs` | 공통 API 처리·Vercel 진입점 |
+| `core/handler.mjs` | 서버 라우터: 서랍별 API(`apps/*/routes.mjs`)에 차례로 맡기고, 그 밖의 요청은 `public/` 정적 파일로 응답 |
+| `core/http.mjs` | JSON 응답, 요청 본문, DB 연결(한 번만) |
+| `core/store.mjs` | Supabase·로컬 SQLite 저장소(프로필·옷차림 기록) |
+| `core/static.mjs` | 서버와 브라우저가 함께 쓰는 모듈 목록(로컬 서버 응답과 배포 빌드 복사에 같이 사용) |
+| `apps/cloth/` | Cloth to You: `lib.mjs`(옷·점수·추천), `comfort-model.mjs`(개인 보온 범위), `forecast.mjs`(예보 가공), `record.mjs`(기록 검증), `observed.mjs`(관측 날씨 보정), `routes.mjs`(프로필·설정·기록·백업·날씨 API) |
+| `apps/subway/` | 지하철: `subway.mjs`(경로 계산·실시간 배치), `subway-api.mjs`(시간표·실시간·혼잡도), `routes.mjs`(`/api/subway/*`), `data-src/`(공공데이터 원본), `build-data.mjs`(`npm run build:subway`), `subway-congestion.json`(서버 전용 혼잡도) |
+| `public/shell/` | My Doc 뼈대: `main.js`(헤더·모바일 메뉴·홈 브리핑·서랍 전환·앱 시작), `util.js`(공통 화면 도구) |
+| `public/cloth/cloth-view.js` | Cloth to You 화면과 홈 브리핑의 날씨·옷차림 카드 |
+| `public/subway/` | 지하철 화면(`subway-view.js`, 홈 브리핑 지하철 카드 포함)과 노선 데이터(`subway-data.json`) |
+| `public/styles/` | `base.css`(토큰·기본 컨트롤) → `shell.css` → `cloth.css` → `subway.css` 순서로 불러옴 |
+| `api/handler.mjs`, `server.mjs` | Vercel 진입점, 로컬 서버 |
+| `scripts/build.mjs` | 배포용 `dist/` 만들기(`public/` + 공용 모듈) |
 | `supabase/` | DB 스키마·이전용 SQL |
-| `tests/`, `scripts/browser-check.mjs` | 계산·API·브라우저 검증 |
+| `tests/core`, `tests/cloth`, `tests/subway`, `scripts/browser-check.mjs` | 계산·API·브라우저 검증 |
+
+### DB 구조
+
+| 테이블 | 내용 |
+| --- | --- |
+| `wq_profiles` | 공통 계정(id·닉네임). `data` 칸은 예전 저장 방식으로, 새 테이블이 비어 있을 때만 읽어 옮김 |
+| `wq_cloth_settings` | 옷차림 설정(프로필당 한 줄) |
+| `wq_records` | 옷차림 착용 기록 |
+| `wq_subway_saved` | 지하철 즐겨찾기·최근 경로·경로 기준·실시간 노선(프로필당 한 줄) |
+
+서랍 테이블은 모두 `profile_id`로 프로필에 연결되고, 프로필을 지우면 함께 지워집니다. 각 서랍은 `core/profile.mjs`의 `profilePart`로 자기 몫을 프로필 응답에 붙이고, `db.appGet/appSet(테이블, 프로필 id)`으로 자기 테이블만 읽고 씁니다. 기존 DB는 `supabase/migrations/2026-11-23-drawer-tables.sql`을 한 번 실행해 옮깁니다.
+
+### 새 서랍 추가하기
+1. `apps/<이름>/routes.mjs`에서 `handle(ctx)`를 내보내고(맞지 않는 요청은 `false` 반환) `core/handler.mjs`의 `apps` 목록에 넣습니다.
+2. 화면은 `public/<이름>/`에 두고 `public/shell/main.js`의 `showApp`·홈 서랍 목록·모바일 메뉴(`public/index.html`)에 연결합니다.
+3. 스타일은 `public/styles/<이름>.css`를 만들어 `index.html`에 추가합니다.
+4. 저장할 데이터가 있으면 `wq_<이름>_...` 테이블을 만들어(`profile_id` 연결) `core/store.mjs`의 `APP_TABLES`에 이름을 넣고, `supabase/schema.sql`과 새 마이그레이션 SQL에도 추가합니다.
 
 실제 보유 옷장, 하의 점수 학습, 실시간 화면 동기화는 아직 포함하지 않았습니다.
 

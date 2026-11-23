@@ -1,34 +1,35 @@
-import {readFileSync} from 'node:fs';
+// My Doc 서버 라우터: 서랍(apps/*)마다 API를 맡기고, 그 밖의 요청은 public/ 정적 파일로 응답합니다.
+// 새 서랍은 apps/<이름>/routes.mjs 에서 handle(ctx)를 내보내고 아래 apps 목록에 추가하면 됩니다.
+import {readFileSync,statSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
-import {join,dirname} from 'node:path';
-import {createStore} from './store.mjs';
-import {validateRecord} from './record.mjs';
-import {backfillObservations} from './observed.mjs';
-import {departures,positions,plan,arrivals,sanitizeSubwaySaved} from './subway-api.mjs';
-import {cities,clothes,normalizeNickname,clamp,preferenceSettings} from './lib.mjs';
-const root=dirname(fileURLToPath(import.meta.url));
-let storePromise;
-function storage(){return storePromise??=createStore().catch(e=>{storePromise=null;throw e;});}
-const cache=new Map();
-const json=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
-async function body(req){if(req.body && typeof req.body === 'object')return req.body;if(typeof req.body === 'string')return JSON.parse(req.body);let s='';for await(const c of req){s+=c;if(Buffer.byteLength(s)>2_000_000)throw Error('파일이 너무 큽니다.');}return JSON.parse(s||'{}');}
-function settings(input){return {...preferenceSettings(input),cold:clamp(Math.round(Number(input.cold)||0),-2,2),heat:clamp(Math.round(Number(input.heat)||0),-2,2),avoid:Array.isArray(input.avoid)?[...new Set(input.avoid.filter(id=>clothes.some(c=>c.id===id)))]:[],city:cities[input.city]?input.city:'seoul',activity:['normal','active','still'].includes(input.activity)?input.activity:'normal',hour:clamp(Math.round(Number.isFinite(Number(input.hour))?Number(input.hour):8),0,23),style:['simple','balanced','layered'].includes(input.style)?input.style:'balanced',onboarded:!!input.onboarded};}
+import {join,dirname,resolve,sep,extname} from 'node:path';
+import {json,body,storage} from './http.mjs';
+import {SHARED_MODULES} from './static.mjs';
+import {handle as cloth} from '../apps/cloth/routes.mjs';
+import {handle as subway} from '../apps/subway/routes.mjs';
+const root=dirname(dirname(fileURLToPath(import.meta.url)));
+const publicDir=join(root,'public');
+const apps=[subway,cloth];
+const TYPES={'.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.webmanifest':'application/manifest+json; charset=utf-8','.svg':'image/svg+xml','.ico':'image/x-icon','.png':'image/png'};
+
+// 정적 파일: public/ 안의 알려진 형식만, 그리고 브라우저와 함께 쓰는 서버 모듈(SHARED_MODULES)
+function staticFile(pathname){
+ if(SHARED_MODULES[pathname])return join(root,SHARED_MODULES[pathname]);
+ let rel;try{rel=decodeURIComponent(pathname);}catch{return null;}
+ if(rel==='/')rel='/index.html';
+ const file=resolve(publicDir,'.'+rel);
+ if(!file.startsWith(publicDir+sep)||!TYPES[extname(file)])return null;
+ try{return statSync(file).isFile()?file:null;}catch{return null;}
+}
 
 export default async function handler(req,res){try{const u=new URL(req.url,'http://localhost');
  if(u.pathname==='/api/handler'&&u.searchParams.has('route'))u.pathname='/api/'+u.searchParams.get('route');
- if(u.pathname==='/api/subway/departures'){const station=u.searchParams.get('station');if(!station||station.length>30)throw Error('역 이름을 확인해 주세요.');return json(res,200,await departures(station));}
- if(u.pathname==='/api/subway/plan'){const q=k=>(u.searchParams.get(k)||'').slice(0,30);return json(res,200,await plan({from:q('from'),via:q('via'),to:q('to'),mode:q('mode')==='fewest'?'fewest':'fastest',time:q('time')}));}
- if(u.pathname==='/api/subway/arrivals'){const station=u.searchParams.get('station');if(!station||station.length>30)throw Error('역 이름을 확인해 주세요.');return json(res,200,await arrivals(station));}
- if(u.pathname==='/api/subway/positions')return json(res,200,await positions(u.searchParams.get('line')));
- const db=u.pathname.startsWith('/api/')&&u.pathname!=='/api/weather'?await storage():null;
- if(u.pathname==='/api/profile'&&req.method==='POST'){const b=await body(req);const nickname=normalizeNickname(b.nickname);const p=await db.profile(nickname,nickname.toLocaleLowerCase('en'),settings({}));let records=await db.records(p.id);if(process.env.WQ_OBSERVED!=='off'){try{if(await backfillObservations(records,{save:r=>db.save(p.id,r)}))records=await db.records(p.id);}catch(e){console.error('Observed weather backfill failed:',e.message);}}return json(res,200,{profile:p,records});}
- if(u.pathname==='/api/subway/save'&&req.method==='POST'){const b=await body(req);const {id,nickname,...data}=await db.user(b.userId);const subway=sanitizeSubwaySaved(b.subway);await db.settings(id,{...data,subway});return json(res,200,{subway});}
- if(u.pathname==='/api/settings'&&req.method==='POST'){const b=await body(req);const current=await db.user(b.userId);await db.settings(b.userId,{...settings(b),...(current.subway?{subway:current.subway}:{})});return json(res,200,{profile:await db.user(b.userId)});}
- if(u.pathname==='/api/data'&&req.method==='GET'){const p=await db.user(u.searchParams.get('userId'));return json(res,200,{version:1,exportedAt:new Date().toISOString(),profile:p,records:await db.records(p.id)});}
- if(u.pathname==='/api/record'&&req.method==='POST'){const b=await body(req);await db.user(b.userId);const r=validateRecord(b.record);await db.save(b.userId,r);return json(res,200,{records:await db.records(b.userId)});}
- if(u.pathname==='/api/record/delete'&&req.method==='POST'){const b=await body(req);await db.user(b.userId);if(typeof b.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(b.date))throw Error('삭제할 날짜를 확인해 주세요.');await db.remove(b.userId,b.date);return json(res,200,{records:await db.records(b.userId)});}
- if(u.pathname==='/api/import'&&req.method==='POST'){const b=await body(req);await db.user(b.userId);if(b.data?.version!==1||!Array.isArray(b.data.records)||b.data.records.length>5000)throw Error('지원하지 않는 백업 파일입니다.');const clean=b.data.records.map(r=>validateRecord(r,{importing:true}));if(new Set(clean.map(r=>r.id)).size!==clean.length)throw Error('중복 기록이 있는 파일입니다.');const added=await db.merge(b.userId,clean);return json(res,200,{added,records:await db.records(b.userId)});}
- if(u.pathname==='/api/weather'){const city=cities[u.searchParams.get('city')];if(!city)throw Error('지원하지 않는 지역입니다.');const key=u.searchParams.get('city');let data=cache.get(key);if(!data||Date.now()-data.fetched>600000){const upstream=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&hourly=temperature_2m,apparent_temperature,precipitation_probability,wind_speed_10m,weather_code,is_day,cloud_cover,shortwave_radiation,precipitation&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day,precipitation&daily=temperature_2m_min,temperature_2m_max,precipitation_sum&timezone=Asia%2FSeoul&forecast_days=3`,{signal:AbortSignal.timeout(12000)});if(!upstream.ok)throw Error('날씨 제공 서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.');const raw=await upstream.json();data={fetched:Date.now(),hourly:raw.hourly,current:raw.current,daily:raw.daily,city:city.name};cache.set(key,data);}return json(res,200,data);}
- if(u.pathname.startsWith('/api/'))return json(res,404,{error:'API를 찾을 수 없습니다.'});
- const files={'/':'index.html','/app.css':'app.css','/favicon.svg':'favicon.svg','/favicon.ico':'favicon.ico','/apple-touch-icon.png':'apple-touch-icon.png','/main.js':'main.js','/subway-view.js':'subway-view.js','/subway-data.json':'subway-data.json','/subway.mjs':'../subway.mjs','/forecast.mjs':'../forecast.mjs','/lib.mjs':'../lib.mjs','/comfort-model.mjs':'../comfort-model.mjs'};const file=files[u.pathname];if(!file){res.writeHead(404);return res.end('Not found');}res.writeHead(200,{'Content-Type':file.endsWith('.svg')?'image/svg+xml':file.endsWith('.ico')?'image/x-icon':file.endsWith('.png')?'image/png':file.endsWith('.css')?'text/css':file.endsWith('.html')?'text/html; charset=utf-8':file.endsWith('.json')?'application/json; charset=utf-8':'text/javascript; charset=utf-8','X-Content-Type-Options':'nosniff'});res.end(readFileSync(join(root,'public',file)));
+ if(u.pathname.startsWith('/api/')){
+  const ctx={req,res,u,db:storage,body:()=>body(req),send:(status,data)=>json(res,status,data)};
+  for(const app of apps)if(await app(ctx)!==false)return;
+  return json(res,404,{error:'API를 찾을 수 없습니다.'});
+ }
+ const file=staticFile(u.pathname);
+ if(!file){res.writeHead(404);return res.end('Not found');}
+ res.writeHead(200,{'Content-Type':TYPES[extname(file)],'X-Content-Type-Options':'nosniff'});res.end(readFileSync(file));
  }catch(e){json(res,400,{error:e.message||'요청을 처리하지 못했어요.'});}}

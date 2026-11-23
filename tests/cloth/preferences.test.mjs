@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {recommend,warmthTarget,sensitivityPrior,comfortNotes,sensitivityChoices,preferenceSettings} from '../lib.mjs';
+import {recommend,warmthTarget,sensitivityPrior,comfortNotes,sensitivityChoices,preferenceSettings} from '../../apps/cloth/lib.mjs';
 
 test('five-level cold and heat keep old values and add a less-sensitive side in display order',()=>{
  assert.deepEqual(sensitivityChoices.cold.map(([v])=>v),[-2,-1,0,1,2]);
@@ -41,7 +41,7 @@ test('cold spot and day swing produce advice only when relevant',()=>{
 });
 
 test('new garments have variants and keep vest out of the base layer',async()=>{
- const {clothes,outfit}=await import('../lib.mjs');
+ const {clothes,outfit}=await import('../../apps/cloth/lib.mjs');
  for(const id of ['vest','blazer','leather','field','longpad'])assert.ok(clothes.find(c=>c.id===id)?.variants.length>=2,id);
  assert.ok(!clothes.find(c=>c.id==='vest').roles.includes('base'));
  assert.ok(clothes.find(c=>c.id==='knit').variants.some(v=>v.id==='turtle'));
@@ -49,7 +49,7 @@ test('new garments have variants and keep vest out of the base layer',async()=>{
 });
 
 test('season bands pick natural outfits without changing the required warmth',async()=>{
- const {seasonBands}=await import('../lib.mjs');
+ const {seasonBands}=await import('../../apps/cloth/lib.mjs');
  const heavy=['padded','longpad','leather:shearling','coat:thick'];
  for(const t of [12,15,18,22]){
   const r=recommend(t,0);

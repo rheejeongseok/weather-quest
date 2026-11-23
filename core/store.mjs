@@ -1,5 +1,8 @@
 import {randomUUID} from 'node:crypto';
-import {dailyRecord,dailyRecords} from './record.mjs';
+import {dailyRecord,dailyRecords} from '../apps/cloth/record.mjs';
+// 서랍별 데이터 테이블(프로필 하나에 한 줄, profile_id로 연결). 여기 있는 이름만 읽고 쓸 수 있습니다.
+export const APP_TABLES=new Set(['wq_cloth_settings','wq_subway_saved']);
+const appTable=t=>{if(!APP_TABLES.has(t))throw Error('알 수 없는 데이터 테이블: '+t);return t;};
 
 export function createSupabaseStore({url,key,fetcher=fetch}){
  url=String(url||'').trim();key=String(key||'').trim();
@@ -30,9 +33,12 @@ export function createSupabaseStore({url,key,fetcher=fetch}){
  }
  const query=value=>encodeURIComponent(value);
  return {
-  async profile(nickname,nkey,defaults){await request('wq_profiles?on_conflict=nkey',{method:'POST',body:{id:randomUUID(),nickname,nkey,data:defaults},prefer:'resolution=ignore-duplicates,return=minimal'});const rows=await request('wq_profiles?nkey=eq.'+query(nkey)+'&select=id,nickname,data');return {id:rows[0].id,nickname:rows[0].nickname,...rows[0].data};},
-  async user(id){const rows=await request('wq_profiles?id=eq.'+query(id)+'&select=id,nickname,data');if(!rows.length)throw Error('프로필을 다시 선택해 주세요.');return {id:rows[0].id,nickname:rows[0].nickname,...rows[0].data};},
-  async settings(id,data){await request('wq_profiles?id=eq.'+query(id),{method:'PATCH',body:{data},prefer:'return=minimal'});},
+  // 프로필(공통 계정): 신원만 다룹니다. data 칸은 예전 저장 방식이라 이전용으로만 읽습니다.
+  async profile(nickname,nkey){await request('wq_profiles?on_conflict=nkey',{method:'POST',body:{id:randomUUID(),nickname,nkey},prefer:'resolution=ignore-duplicates,return=minimal'});const rows=await request('wq_profiles?nkey=eq.'+query(nkey)+'&select=id,nickname');return {id:rows[0].id,nickname:rows[0].nickname};},
+  async user(id){const rows=await request('wq_profiles?id=eq.'+query(id)+'&select=id,nickname');if(!rows.length)throw Error('프로필을 다시 선택해 주세요.');return {id:rows[0].id,nickname:rows[0].nickname};},
+  async legacyData(id){const rows=await request('wq_profiles?id=eq.'+query(id)+'&select=data');return rows[0]?.data||{};},
+  async appGet(table,id){const rows=await request(appTable(table)+'?profile_id=eq.'+query(id)+'&select=data');return rows?.[0]?.data??null;},
+  async appSet(table,id,data){await request(appTable(table)+'?on_conflict=profile_id',{method:'POST',body:{profile_id:id,data,updated_at:new Date().toISOString()},prefer:'resolution=merge-duplicates,return=minimal'});},
   async records(id){const all=[];for(let offset=0;;offset+=1000){const rows=await request('wq_records?user_id=eq.'+query(id)+'&select=data&order=id&limit=1000&offset='+offset);all.push(...rows.map(r=>r.data));if(rows.length<1000)return dailyRecords(all);}},
   async save(id,record){const r=dailyRecord(record);await request('wq_records?on_conflict=user_id,id',{method:'POST',body:{id:r.id,user_id:id,data:r},prefer:'resolution=merge-duplicates,return=minimal'});await request('wq_records?user_id=eq.'+query(id)+'&data->>date=eq.'+query(r.date)+'&id=neq.'+query(r.id),{method:'DELETE',prefer:'return=minimal'});},
   async remove(id,date){await this.save(id,{date,deleted:true,updatedAt:new Date().toISOString()});},
@@ -46,12 +52,14 @@ export async function createStore(){
  if(url&&key)return createSupabaseStore({url,key});
  if(process.env.VERCEL||url||key)throw Error('SUPABASE_URL과 SUPABASE_SECRET_KEY 환경변수를 모두 설정해 주세요.');
  const {DatabaseSync}=await import('node:sqlite');const {mkdirSync}=await import('node:fs');const {join}=await import('node:path');const {fileURLToPath}=await import('node:url');
- const dir=process.env.DATA_DIR||fileURLToPath(new URL('./data',import.meta.url));mkdirSync(dir,{recursive:true});
- const db=new DatabaseSync(join(dir,'weather.sqlite'));db.exec('PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS profiles(id TEXT PRIMARY KEY,nickname TEXT NOT NULL,nkey TEXT UNIQUE NOT NULL,data TEXT NOT NULL); CREATE TABLE IF NOT EXISTS records(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,data TEXT NOT NULL); CREATE TABLE IF NOT EXISTS wq_records(id TEXT NOT NULL,user_id TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(user_id,id)); INSERT OR IGNORE INTO wq_records SELECT id,user_id,data FROM records;');
+ const dir=process.env.DATA_DIR||fileURLToPath(new URL('../data',import.meta.url));mkdirSync(dir,{recursive:true});
+ const db=new DatabaseSync(join(dir,'weather.sqlite'));db.exec('PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS profiles(id TEXT PRIMARY KEY,nickname TEXT NOT NULL,nkey TEXT UNIQUE NOT NULL,data TEXT NOT NULL); CREATE TABLE IF NOT EXISTS records(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,data TEXT NOT NULL); CREATE TABLE IF NOT EXISTS wq_records(id TEXT NOT NULL,user_id TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(user_id,id)); INSERT OR IGNORE INTO wq_records SELECT id,user_id,data FROM records; CREATE TABLE IF NOT EXISTS wq_cloth_settings(profile_id TEXT PRIMARY KEY,data TEXT NOT NULL,updated_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS wq_subway_saved(profile_id TEXT PRIMARY KEY,data TEXT NOT NULL,updated_at TEXT NOT NULL);');
  const store={
-  async profile(nickname,nkey,defaults){db.prepare('INSERT OR IGNORE INTO profiles VALUES(?,?,?,?)').run(randomUUID(),nickname,nkey,JSON.stringify(defaults));return store.user(db.prepare('SELECT id FROM profiles WHERE nkey=?').get(nkey).id);},
-  async user(id){const r=db.prepare('SELECT * FROM profiles WHERE id=?').get(id);if(!r)throw Error('프로필을 다시 선택해 주세요.');return {id:r.id,nickname:r.nickname,...JSON.parse(r.data)};},
-  async settings(id,data){db.prepare('UPDATE profiles SET data=? WHERE id=?').run(JSON.stringify(data),id);},
+  async profile(nickname,nkey){db.prepare("INSERT OR IGNORE INTO profiles VALUES(?,?,?,'{}')").run(randomUUID(),nickname,nkey);return store.user(db.prepare('SELECT id FROM profiles WHERE nkey=?').get(nkey).id);},
+  async user(id){const r=db.prepare('SELECT id,nickname FROM profiles WHERE id=?').get(id);if(!r)throw Error('프로필을 다시 선택해 주세요.');return {id:r.id,nickname:r.nickname};},
+  async legacyData(id){const r=db.prepare('SELECT data FROM profiles WHERE id=?').get(id);return r?JSON.parse(r.data||'{}'):{};},
+  async appGet(table,id){const r=db.prepare(`SELECT data FROM ${appTable(table)} WHERE profile_id=?`).get(id);return r?JSON.parse(r.data):null;},
+  async appSet(table,id,data){db.prepare(`INSERT INTO ${appTable(table)} VALUES(?,?,?) ON CONFLICT(profile_id) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at`).run(id,JSON.stringify(data),new Date().toISOString());},
   async records(id){return dailyRecords(db.prepare('SELECT data FROM wq_records WHERE user_id=? ORDER BY id').all(id).map(r=>JSON.parse(r.data)));},
   async save(id,record){const r=dailyRecord(record);db.exec('BEGIN');try{db.prepare('INSERT INTO wq_records VALUES(?,?,?) ON CONFLICT(user_id,id) DO UPDATE SET data=excluded.data').run(r.id,id,JSON.stringify(r));db.prepare("DELETE FROM wq_records WHERE user_id=? AND json_extract(data,'$.date')=? AND id<>?").run(id,r.date,r.id);db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}},
   async remove(id,date){await store.save(id,{date,deleted:true,updatedAt:new Date().toISOString()});},

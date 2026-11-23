@@ -1,9 +1,9 @@
-// 공공데이터 원본(data-src/subway)을 경로 계산용 public/subway-data.json으로 조립합니다.
+// 공공데이터 원본(apps/subway/data-src)을 경로 계산용 public/subway/subway-data.json과 서버용 subway-congestion.json으로 조립합니다.
 // 실행: node scripts/build-subway.mjs
 import {readFileSync,writeFileSync} from 'node:fs';
 
-const root=new URL('../',import.meta.url);
-const csv=file=>readFileSync(new URL('data-src/subway/'+file,root),'utf8').trim().split(/\r?\n/).slice(1).map(line=>line.split(','));
+const root=new URL('../../',import.meta.url),here=new URL('./',import.meta.url);
+const csv=file=>readFileSync(new URL('data-src/'+file,here),'utf8').trim().split(/\r?\n/).slice(1).map(line=>line.split(','));
 
 // 역 이름 정리: 괄호 부기명 제거, 공백 제거, '신내역' 같은 표기 통일. 같은 역의 다른 이름은 별칭으로 합칩니다.
 const ALIASES={'이수':'총신대입구','불암산':'당고개'};
@@ -153,14 +153,14 @@ const data={version:1,builtAt:new Date().toISOString().slice(0,10),coords,approx
  model:{dwellMinutes:.5,transferWaitMinutes:3,defaultWalkMinutes:3,distanceFormula:'0.40 + 1.05 × km'},
  aliases:ALIASES,lines,stations,walks,
  sources:['서울교통공사 역간거리 및 소요시간(서울 열린데이터광장 OA-12034)','서울교통공사 환승역거리 소요시간 정보(OA-13290)','국가철도공단 코레일·수도권7호선·수도권9호선 역간거리(공공데이터포털)','서울교통공사 1~8호선 역사 좌표(공공데이터포털 15099316)','국가철도공단 수도권1~7·9호선 역위치(공공데이터포털)']};
-writeFileSync(new URL('public/subway-data.json',root),JSON.stringify(data));
+writeFileSync(new URL('public/subway/subway-data.json',root),JSON.stringify(data));
 const count=Object.keys(stations).length,transfers=Object.values(stations).filter(l=>l.length>1).length;
-console.log(`지하철 데이터: 역 ${count}개, 환승역 ${transfers}개, 노선 ${Object.keys(lines).length}개, 추정 좌표 ${data.approxCoords.length}개(${data.approxCoords.join(', ')}) → public/subway-data.json`);
+console.log(`지하철 데이터: 역 ${count}개, 환승역 ${transfers}개, 노선 ${Object.keys(lines).length}개, 추정 좌표 ${data.approxCoords.length}개(${data.approxCoords.join(', ')}) → public/subway/subway-data.json`);
 
 // ---------- 평균 혼잡도(서울교통공사 지하철혼잡도정보, 1~8호선, 30분 단위) → 서버 전용 subway-congestion.json ----------
 // up = 상선·내선(실시간 updnLine 0, 시간표 INOUT 1), down = 하선·외선. 값은 정원 대비 % (100 = 좌석+입석 정원)
 {
- const rows=readFileSync(new URL('data-src/subway/seoulmetro-congestion.csv',root),'utf8').trim().split('\n').map(l=>l.split(','));
+ const rows=readFileSync(new URL('data-src/seoulmetro-congestion.csv',here),'utf8').trim().split('\n').map(l=>l.split(','));
  const header=rows.shift(),slots=header.slice(5).map(h=>{const m=h.match(/(\d+)시(\d+)분/);return m?String(m[1]).padStart(2,'0')+':'+m[2]:h;});
  const days={'평일':'weekday','토요일':'sat','일요일':'sun'},out={};let missing=new Set();
  for(const r of rows){
@@ -173,6 +173,6 @@ console.log(`지하철 데이터: 역 ${count}개, 환승역 ${transfers}개, �
   const prev=out[name][line][dir][day];
   out[name][line][dir][day]=prev?prev.map((v,i)=>Math.max(v??0,values[i]??0)):values;// 같은 역이 두 번 나오면 큰 값
  }
- writeFileSync(new URL('subway-congestion.json',root),JSON.stringify({source:'서울교통공사 지하철혼잡도정보(공공데이터포털 15071311, 2026년 9월 기준)',slots,stations:out}));
- console.log(`혼잡도: 역 ${Object.keys(out).length}개${missing.size?`, 노선도에 없는 역 ${[...missing].join(', ')}`:''} → subway-congestion.json`);
+ writeFileSync(new URL('subway-congestion.json',here),JSON.stringify({source:'서울교통공사 지하철혼잡도정보(공공데이터포털 15071311, 2026년 9월 기준)',slots,stations:out}));
+ console.log(`혼잡도: 역 ${Object.keys(out).length}개${missing.size?`, 노선도에 없는 역 ${[...missing].join(', ')}`:''} → apps/subway/subway-congestion.json`);
 }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {outfit,compareOutfit,clothes,correction,SCORE_VERSION} from '../lib.mjs';
-import {validateRecord} from '../record.mjs';
+import {outfit,compareOutfit,clothes,correction,SCORE_VERSION} from '../../apps/cloth/lib.mjs';
+import {validateRecord} from '../../apps/cloth/record.mjs';
 const example={id:'warmth-test',date:'2026-10-28',items:['shirt','light'],rating:0,context:'outdoor',weather:{temp:10,feels:8,hour:8,city:'서울'}};
 test('thicker variants give warmer combinations without a material-only multiplier',()=>{
  assert.ok(outfit(['shirt'],{shirt:'flannel'}).score>outfit(['shirt'],{shirt:'thin'}).score);

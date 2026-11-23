@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {findRoute,stationName,searchStations} from '../subway.mjs';
+import {findRoute,stationName,searchStations} from '../../apps/subway/subway.mjs';
 
-const data=JSON.parse(readFileSync(new URL('../public/subway-data.json',import.meta.url),'utf8'));
+const data=JSON.parse(readFileSync(new URL('../../public/subway/subway-data.json',import.meta.url),'utf8'));
 const route=(a,b,mode)=>findRoute(data,a,b,{mode});
 
 test('data covers lines 1-9 with consistent segments and key transfer stations',()=>{
@@ -63,8 +63,8 @@ test('invalid requests explain the problem',()=>{
  assert.throws(()=>route('없는역','강남'),/찾지 못했어요/);
 });
 
-import {findRouteVia} from '../subway.mjs';
-import {upcoming,weekTag,departures} from '../subway-api.mjs';
+import {findRouteVia} from '../../apps/subway/subway.mjs';
+import {upcoming,weekTag,departures} from '../../apps/subway/subway-api.mjs';
 
 test('via routes stay on the train when the line continues and transfer otherwise',()=>{
  const through=findRouteVia(data,'강남','역삼','삼성');
@@ -104,8 +104,8 @@ test('departures without a key ask for one instead of failing',async()=>{
  assert.deepEqual(await departures('강남역',{key:''}),{needsKey:true,station:'강남'});
 });
 
-import {placeTrains,approaching,travelMinutes,laneName} from '../subway.mjs';
-import {parsePositions,positions} from '../subway-api.mjs';
+import {placeTrains,approaching,travelMinutes,laneName} from '../../apps/subway/subway.mjs';
+import {parsePositions,positions} from '../../apps/subway/subway-api.mjs';
 
 test('realtime trains are placed by direction on the right segment',()=>{
  const trains=parsePositions([
@@ -145,7 +145,7 @@ test('realtime positions without a key ask for one',async()=>{
  await assert.rejects(positions('0',{key:'x'}),/노선/);
 });
 
-import {pickTrains,servesStation,plan} from '../subway-api.mjs';
+import {pickTrains,servesStation,plan} from '../../apps/subway/subway-api.mjs';
 
 test('the boarding plan picks a train that really reaches the alighting station',()=>{
  const leg=findRoute(data,'노원','사당').legs[0];
@@ -177,7 +177,7 @@ test('a train reported twice keeps only its latest position',()=>{
  assert.equal(trains.length,2);assert.equal(trains[0].station,'녹번');assert.equal(trains[0].status,2);
 });
 
-import {parseArrivals,congestionAt,congestionLevel} from '../subway-api.mjs';
+import {parseArrivals,congestionAt,congestionLevel} from '../../apps/subway/subway-api.mjs';
 
 test('station arrivals group by direction with clean labels and a live countdown',()=>{
  const now=Date.parse('2026-11-23T13:48:30+09:00');

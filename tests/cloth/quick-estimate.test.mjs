@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {warmthTarget,sensitivityPrior,SCORE_VERSION} from '../lib.mjs';
+import {warmthTarget,sensitivityPrior,SCORE_VERSION} from '../../apps/cloth/lib.mjs';
 const p={cold:0,heat:0,activity:'normal',exposure:'medium'};
 const rec=(day,feels,score,rating=0)=>({id:`day:2026-11-${day}`,date:`2026-11-${day}`,updatedAt:'2026-11-01T00:00:00Z',items:['shirt','light'],score,scoreVersion:SCORE_VERSION,rating,context:'outdoor',activity:'normal',exposure:'medium',weather:{feels,temp:feels}});
 

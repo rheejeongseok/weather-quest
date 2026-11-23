@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateRecord} from '../record.mjs';
-import {warmthTarget,recordFeels,recommendationStats,comparabilityWeight} from '../lib.mjs';
-import {backfillObservations,observationFor,needsObservation,cityKey,clearObservationCache} from '../observed.mjs';
+import {validateRecord} from '../../apps/cloth/record.mjs';
+import {warmthTarget,recordFeels,recommendationStats,comparabilityWeight} from '../../apps/cloth/lib.mjs';
+import {backfillObservations,observationFor,needsObservation,cityKey,clearObservationCache} from '../../apps/cloth/observed.mjs';
 
 const base={id:'obs-test',date:'2026-11-10',items:['shirt','light'],rating:0,context:'outdoor',weather:{temp:10,feels:8,hour:8,city:'서울'}};
 

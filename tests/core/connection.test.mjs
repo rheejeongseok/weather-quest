@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createSupabaseStore} from '../store.mjs';
+import {createSupabaseStore} from '../../core/store.mjs';
 test('project URL rejects dashboard links and keys reject embedded line breaks',()=>{
  assert.throws(()=>createSupabaseStore({url:'https://supabase.com/dashboard/project/test',key:'test'}),/대시보드/);
  assert.throws(()=>createSupabaseStore({url:'example.supabase.co',key:'test'}),/Project URL/);
