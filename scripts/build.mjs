@@ -5,4 +5,5 @@ await cp(new URL('public/',root),new URL('dist/',root),{recursive:true});
 await copyFile(new URL('lib.mjs',root),new URL('dist/lib.mjs',root));
 await copyFile(new URL('forecast.mjs',root),new URL('dist/forecast.mjs',root));
 await copyFile(new URL('comfort-model.mjs',root),new URL('dist/comfort-model.mjs',root));
+await copyFile(new URL('subway.mjs',root),new URL('dist/subway.mjs',root));
 console.log('Static assets ready in dist/');

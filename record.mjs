@@ -50,7 +50,7 @@ export function validateRecord(r,{importing=false}={}){
   garments:legacy?undefined:result.items.map(c=>({id:c.id,name:c.name,variantId:c.variantId,variantName:c.variantName,material:c.material,score:c.score})),
   rating:r.rating,context:r.context,activity:['normal','active','still'].includes(r.activity)?r.activity:null,exposure:Object.hasOwn(preferenceChoices.exposure,r.exposure)?r.exposure:null,
   weather:{temp:r.weather.temp,feels:r.weather.feels,wind:Number.isFinite(r.weather.wind)&&r.weather.wind>=0?r.weather.wind:null,city:String(r.weather.city||'').slice(0,40),hour,
-   rain:finite(r.weather.rain,0,100),cloud:finite(r.weather.cloud,0,100),radiation:finite(r.weather.radiation,0,1500),window:sanitizeWindow(r.weather.window,hour)},
+   rain:finite(r.weather.rain,0,100),precip:finite(r.weather.precip,0,500),cloud:finite(r.weather.cloud,0,100),radiation:finite(r.weather.radiation,0,1500),window:sanitizeWindow(r.weather.window,hour)},
   swing:choice(recordChoices.swing,r.swing),bottom:choice(recordChoices.bottom,r.bottom),accessories,layerChange:choice(recordChoices.layerChange,r.layerChange),
   recommendation:sanitizeRecommendation(r.recommendation,result),observed:sanitizeObserved(r.observed),
   updatedAt:importing&&typeof r.updatedAt==='string'&&Number.isFinite(Date.parse(r.updatedAt))?new Date(r.updatedAt).toISOString():new Date().toISOString()};

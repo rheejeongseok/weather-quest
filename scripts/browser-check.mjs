@@ -35,6 +35,9 @@ try{
  await send('Page.navigate',{url:'http://127.0.0.1:3014/'});
  try{await waitFor(()=>evaluate('!!document.querySelector("#login")'));}catch(e){console.log(await evaluate('document.documentElement.outerHTML.slice(0,2500)'));console.log(errors);throw e;}
  async function screenshot(name){const r=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(new URL('.qa/'+name+'.png',root),Buffer.from(r.data,'base64'));}
+ await waitFor(()=>evaluate('!!document.querySelector(".home .drawer-row")'));await screenshot('desktop-home');
+ assert.equal(await evaluate('document.querySelector("#app").hidden'),true,'home first');
+ await evaluate("document.querySelector('[data-open=cloth]').click()");
  await screenshot('desktop-welcome');
  await evaluate(`document.querySelector('#login input').value='브라우저테스트';document.querySelector('#login').requestSubmit();`);
  await waitFor(()=>evaluate('!!document.querySelector("#settings")'));
@@ -107,6 +110,43 @@ try{
  assert.equal(await evaluate('document.querySelector(".range-headline strong").textContent'),'5.5~6.5점');
  assert.equal(await evaluate('document.querySelectorAll(".evidence-card").length'),3);
  await screenshot('desktop-personal-range');
+ await evaluate(`document.querySelector('[data-app="subway"]').click()`);
+ await waitFor(()=>evaluate('!!document.querySelector("#subway-form")'));
+ await evaluate(`(()=>{const f=document.querySelector('#subway-form');f.elements.from.value='노원';f.elements.to.value='잠실';f.requestSubmit();})()`);
+ await waitFor(()=>evaluate('!!document.querySelector(".route-summary")'));
+ assert.match(await evaluate('document.querySelector(".route-summary").textContent'),/환승 1회/);
+ assert.equal(await evaluate('document.querySelectorAll(".route-leg").length'),2);
+ await screenshot('desktop-subway');
+ // 프로필 저장: 동기화 안내에 닉네임이 보이고, 즐겨찾기가 프로필에 저장돼야 합니다
+ assert.match(await evaluate('document.querySelector(".sync-note").textContent'),/브라우저테스트/);
+ await evaluate("document.querySelector('[data-fav]').click()");
+ assert.equal(await evaluate('document.querySelector("[data-fav]").getAttribute("aria-pressed")'),'true');
+ await waitFor(async()=>{const r=await fetch('http://127.0.0.1:3014/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nickname:'브라우저테스트'})});const b=await r.json();return b.profile.subway?.favorites?.length===1&&b.profile.subway.favorites[0].from==='노원';});
+ // 노선도: 역을 마우스로 눌러 팝업에서 '도착'을 고르면 경로가 다시 계산되고 지도에 표시돼야 합니다.
+ assert.ok(await evaluate('document.querySelectorAll(".map-line").length>=12'),'map lines drawn');
+ const stationPoint=await evaluate(`(()=>{const g=document.querySelector('.map-station[data-station="삼성"]');const r=g.querySelector('circle').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};})()`);
+ await send('Input.dispatchMouseEvent',{type:'mousePressed',x:stationPoint.x,y:stationPoint.y,button:'left',clickCount:1});
+ await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:stationPoint.x,y:stationPoint.y,button:'left',clickCount:1});
+ await waitFor(()=>evaluate('!document.querySelector("#station-pop").hidden'));
+ assert.match(await evaluate('document.querySelector("#station-pop b").textContent'),/삼성/);
+ await evaluate(`document.querySelector('#station-pop [data-role="to"]').click()`);
+ await waitFor(()=>evaluate('document.querySelector("#subway-form [name=to]").value==="삼성"'));
+ assert.ok(await evaluate('document.querySelector("#subway-map").classList.contains("has-route")'),'route highlighted');
+ assert.ok(await evaluate('document.querySelectorAll(".map-mark").length===2'),'from/to marks');
+ await waitFor(()=>evaluate('/인증키|출발 기준|탈 열차:/.test(document.querySelector("#subway-plan")?.textContent||"")'));
+ await evaluate("document.querySelector('#subway-plan').scrollIntoView({block:'center',behavior:'instant'})");await screenshot('desktop-subway-plan');
+ await evaluate(`(()=>{const f=document.querySelector('#subway-form');f.elements.via.value='동대문';f.requestSubmit();})()`);
+ await waitFor(()=>evaluate('document.querySelector(".route-summary").textContent.includes("동대문 경유")'));
+ await screenshot('desktop-subway-map');
+ // 초기화: 출발·경유·도착과 경로가 지워져야 합니다(이후 확인을 위해 다시 찾음)
+ await evaluate(`document.querySelector('[data-reset]').click()`);
+ assert.equal(await evaluate('document.querySelector("#subway-form [name=from]").value+document.querySelector("#subway-form [name=to]").value'),'');
+ assert.equal(await evaluate('!!document.querySelector(".route-summary")'),false);
+ await evaluate(`(()=>{const f=document.querySelector('#subway-form');f.elements.from.value='노원';f.elements.to.value='잠실';f.requestSubmit();})()`);
+ await waitFor(()=>evaluate('!!document.querySelector(".route-summary")'));
+ await evaluate(`document.querySelector('input[name=when][value=set]').click()`);
+ assert.equal(await evaluate('document.querySelector("input[name=time]").hidden'),false);
+ await evaluate(`document.querySelector('[data-app="cloth"]').click()`);
  await evaluate(`document.querySelector('[data-use-date]').click()`);
  assert.equal(await evaluate('document.querySelector("#outfits").hidden'),false);
  assert.match(await evaluate('document.querySelector(".combo-score").textContent'),/^6점$/);
@@ -123,6 +163,34 @@ try{
  await evaluate(`document.querySelector('[data-view="outfits"]').click();document.querySelector('#outfits').scrollIntoView({behavior:'instant'})`);await screenshot('mobile-builder');
  await evaluate(`document.querySelector('[data-view="feedback"]').click()`);assert.ok(await evaluate('document.documentElement.scrollWidth<=window.innerWidth'),'horizontal overflow in feedback');await evaluate(`document.querySelector('#notice').hidden=true;document.querySelector('#feedback .field-pair').scrollIntoView({behavior:'instant'})`);await pause(150);await screenshot('mobile-feedback');
  await evaluate(`document.querySelector('[data-view="history"]').click()`);await screenshot('mobile-history');
+ await evaluate(`document.querySelector('[data-app="subway"]').click()`);await waitFor(()=>evaluate('!!document.querySelector(".route-summary")'));assert.ok(await evaluate('document.documentElement.scrollWidth<=window.innerWidth'),'horizontal overflow in subway');await screenshot('mobile-subway');
+ // 모바일 경로 탐색: 입력칸이 노선도 위, 초기화 후 지도에서 두 역을 누르면 출발·도착이 차례로 채워짐
+ assert.ok(await evaluate('document.querySelector(".subway-picks").getBoundingClientRect().top<document.querySelector("#subway-map-wrap").getBoundingClientRect().top'),'picks above map');
+ await evaluate("document.querySelector('[data-reset]').click()");
+ await waitFor(()=>evaluate('!document.querySelector("#map-hint").hidden'));
+ await evaluate("document.querySelector('#subway-map-wrap').scrollIntoView({block:'end',behavior:'instant'})");await pause(300);
+ const picks=await evaluate(`(()=>{const out=[];for(const g of document.querySelectorAll('.map-station.transfer')){const r=g.querySelector('circle').getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height/2;const hit=document.elementFromPoint(x,y);if(hit&&hit.closest('.map-station')===g&&!out.some(o=>Math.hypot(o.x-x,o.y-y)<40))out.push({name:g.dataset.station,x,y});if(out.length===2)break;}return out;})()`);
+ assert.equal(picks.length,2,'two tappable stations');
+ for(const p of picks){await send('Input.dispatchMouseEvent',{type:'mousePressed',x:p.x,y:p.y,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:p.x,y:p.y,button:'left',clickCount:1});await pause(200);}
+ await waitFor(()=>evaluate(`document.querySelector('#subway-form [name=from]').value===${JSON.stringify(picks[0].name)}&&document.querySelector('#subway-form [name=to]').value===${JSON.stringify(picks[1].name)}`));
+ await waitFor(()=>evaluate('!!document.querySelector(".route-summary")'));
+ assert.equal(await evaluate('document.querySelector("#map-hint").hidden'),true);
+ await evaluate('window.scrollTo(0,0)');await pause(200);await screenshot('mobile-subway-picked');
+ assert.ok(await evaluate('document.documentElement.scrollHeight<=window.innerHeight+2'),'mobile map mode fits one screen');
+ await evaluate("document.querySelector('[data-sheet-toggle]').click()");await pause(200);await screenshot('mobile-subway-sheet-closed');
+ await evaluate("document.querySelector('[data-sheet-toggle]').click()");
+ await evaluate("document.querySelector('[data-m-mode=search]').click()");await pause(200);
+ assert.equal(await evaluate('getComputedStyle(document.querySelector(\"#subway-map-wrap\")).display'),'none');await screenshot('mobile-subway-search');
+ await evaluate("document.querySelector('[data-m-mode=map]').click()");
+ await evaluate(`document.querySelector('#subway-nav [data-subway-view="live"]').click()`);await waitFor(()=>evaluate('!!document.querySelector(".live-strip, .subway-live-empty, #live-body .error")'));
+ assert.ok(await evaluate('document.documentElement.scrollWidth<=window.innerWidth'),'horizontal overflow in live tab');
+ if(await evaluate('!!document.querySelector(".live-train")')){await evaluate(`document.querySelector('.live-train').click()`);await waitFor(()=>evaluate('!!document.querySelector(".live-detail dl")'));}
+ await screenshot('mobile-subway-train');
+ await evaluate("document.querySelector('.live-stop[data-stop]').click()");await waitFor(()=>evaluate('!!document.querySelector(".live-detail .detail-block")'));await pause(1500);await screenshot('mobile-subway-station');
+ await evaluate("document.querySelector('[data-detail-close]').click()");await screenshot('mobile-subway-live');
+ assert.equal(await evaluate('getComputedStyle(document.querySelector(".live-lines")).display'),'none','mobile hides line chips');await evaluate("document.querySelector('.line-fab').click()");assert.equal(await evaluate('document.querySelector("#line-sheet").hidden'),false);await screenshot('mobile-subway-fab');await evaluate("document.querySelector('#line-sheet [data-live-line=\"2\"]').click()");await waitFor(()=>evaluate('document.querySelector(".line-fab b").textContent==="2"'));await waitFor(()=>evaluate('!!document.querySelector(".live-strip, .subway-live-empty")'));
+ await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});await pause(300);await screenshot('desktop-subway-live');
+ await evaluate(`document.querySelector('#subway-nav [data-subway-view="route"]').click()`);
  assert.deepEqual(errors,[]);
  console.log('Browser PASS: login, reset/clear recommendation, settings, custom layering, variants, daily update without duplicates, edit preload, deletion, style preferences, main tabs, 3-hour forecast, day-specific drafts; responsive widths 390 / 768 / 1440. Screenshots in .qa/');
 }finally{if(ws?.readyState===1)ws.close();browser.kill();local.kill();}

@@ -11,9 +11,9 @@ test('new context fields are sanitized and old records stay valid',()=>{
  assert.equal(old.swing,null);assert.equal(old.bottom,null);assert.deepEqual(old.accessories,[]);assert.equal(old.layerChange,null);
  assert.equal(old.recommendation,null);assert.equal(old.observed,null);assert.equal(old.weather.window,null);
  const r=validateRecord({...base,swing:'colderLater',bottom:'warm',accessories:['scarf','scarf','gloves','bogus'],layerChange:'removed',
-  weather:{...base.weather,rain:30,cloud:120,radiation:-5,window:{start:8,end:10,minFeels:7,maxFeels:12.345,meanFeels:9.5}}});
+  weather:{...base.weather,rain:30,precip:2.345,cloud:120,radiation:-5,window:{start:8,end:10,minFeels:7,maxFeels:12.345,meanFeels:9.5}}});
  assert.equal(r.swing,'colderLater');assert.equal(r.bottom,'warm');assert.deepEqual(r.accessories,['scarf','gloves']);assert.equal(r.layerChange,'removed');
- assert.equal(r.weather.rain,30);assert.equal(r.weather.cloud,100);assert.equal(r.weather.radiation,0);
+ assert.equal(r.weather.rain,30);assert.equal(r.weather.precip,2.3);assert.equal(r.weather.cloud,100);assert.equal(r.weather.radiation,0);
  assert.deepEqual(r.weather.window,{start:8,end:10,minFeels:7,maxFeels:12.3,meanFeels:9.5});
  assert.equal(validateRecord({...base,swing:'nope',bottom:'nope',layerChange:'nope'}).swing,null);
  assert.throws(()=>validateRecord({...base,weather:{...base.weather,window:{start:10,end:8}}}),/종료 시각/);
